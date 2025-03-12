@@ -1,0 +1,1039 @@
+openapi: 3.0.0
+servers:
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/VivekVinushanth/DataIngestion/1.0.0
+info:
+  description: API for ingesting profile events and personality data
+  version: "1.0.0"
+  title: Data Ingestion API
+  license:
+    name: Apache 2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+paths:
+  /{perma_id}/{app_id}/event:
+    post:
+      summary: Push profile events
+      operationId: addEvent
+      description: Adds events to the profile
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the profile
+        - in: path
+          name: app_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+      responses:
+        '201':
+          description: Event added successfully
+        '400':
+          description: Invalid event object
+
+  /{perma_id}/{app_id}/events:
+    post:
+      summary: Push user events
+      operationId: addEvents
+      description: Adds events in bulk to the user profile
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the user
+        - in: path
+          name: app_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+      responses:
+        '201':
+          description: Event added successfully
+        '400':
+          description: Invalid event object
+
+    get:
+      summary: Fetch events emitted by a user
+      operationId: getUserEvents
+      description: Retrieve events emitted by a specific user
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the profile
+        - in: path
+          name: app_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the application
+        - in: query
+          name: searchString
+          schema:
+            type: string
+          description: Optional search filter
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            format: int
+            minimum: 0
+          description: Number of records to skip for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            maximum: 50
+          description: Maximum number of records to return
+      responses:
+        '200':
+          description: Events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '400':
+          description: Bad input parameter
+
+  /{perma_id}/{app_id}/events/{event_id}:
+    get:
+      summary: Fetch specific event emitted by a user
+      operationId: getUserEvent
+      description: Retrieve a specific event emitted by a specific profile
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the profile
+        - in: path
+          name: app_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the application
+        - in: path
+          name: event_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the event
+        - in: query
+          name: searchString
+          schema:
+            type: string
+          description: Optional search filter
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            format: int
+            minimum: 0
+          description: Number of records to skip for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            maximum: 50
+          description: Maximum number of records to return
+      responses:
+        '200':
+          description: Events retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: Bad input parameter
+
+  /profile:
+    post:
+      summary: Create a user profile
+      operationId: createProfile
+      description: Merge different identities of a known user to unify the profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileData'
+      responses:
+        '201':
+          description: Alias successfully updated
+        '400':
+          description: Invalid alias request
+
+  /{perma_id}/profile:
+    get:
+      summary: Fetch 360 profile of a user
+      operationId: getProfileData
+      description: Retrieve profile of a specific user
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the user
+        - in: query
+          name: includeAppContext
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Whether to include application context data
+        - in: query
+          name: app_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Application ID for fetching profile data with app context
+      responses:
+        '200':
+          description: Personality data retrieved successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ProfileDataWithoutAppContext'
+                  - $ref: '#/components/schemas/ProfileData'
+                discriminator:
+                  propertyName: includeAppContext
+        '400':
+          description: Bad input parameter
+
+  /{perma_id}/profile/personality:
+    get:
+      summary: Fetch 360 profile of a user
+      operationId: getPersonalityProfileData
+      description: Retrieve profile of a specific user
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the user
+      responses:
+        '200':
+          description: Personality data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalityData'
+        '400':
+          description: Bad input parameter
+
+    patch:
+      summary: update personality data for a user
+      operationId: addPersonalityData
+      description: Stores personality data linked to a user
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonalityData'
+      responses:
+        '201':
+          description: Personality data added successfully
+        '400':
+          description: Invalid input data
+
+    put:
+      summary: update personality data for a user
+      operationId: addPersonalityData
+      description: Stores personality data linked to a user
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonalityData'
+      responses:
+        '201':
+          description: Personality data added successfully
+        '400':
+          description: Invalid input data
+
+  /{perma_id}/profile/app_context:
+    get:
+      summary: Fetch App context of the user
+      operationId: getListofAppContextData
+      description: Retrieve profile of a specific user
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the user
+      responses:
+        '200':
+          description: Personality data retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppContext'
+        '400':
+          description: Bad input parameter
+
+  /{perma_id}/profile/{app_id}/app_context:
+    get:
+      summary: Fetch App context of the user
+      operationId: getAppContextData
+      description: Retrieve profile of a specific user
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the user
+        - in: path
+          name: app_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the application
+      responses:
+        '200':
+          description: Personality data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppContext'
+        '400':
+          description: Bad input parameter
+    patch:
+      summary: update personality data for a user
+      operationId: addAppContextData
+      description: Stores personality data linked to a user
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the profile
+        - in: path
+          name: app_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppContext'
+      responses:
+        '201':
+          description: Personality data added successfully
+        '400':
+          description: Invalid input data
+
+    put:
+      summary: update personality data for a user
+      operationId: addAppContextData
+      description: Stores personality data linked to a user
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: app_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppContext'
+      responses:
+        '201':
+          description: Personality data added successfully
+        '400':
+          description: Invalid input data
+
+  /{perma_id}/alias:
+    post:
+      summary: Merge different identities of a known user
+      operationId: aliasUser
+      description: Merge different identities of a known user to unify the profile
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Alias'
+      responses:
+        '201':
+          description: Alias successfully updated
+        '400':
+          description: Invalid alias request
+
+    get:
+      summary: Fetch alias of a user
+      operationId: getAlias
+      description: Retrieve alias of a specific user
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the user
+      responses:
+        '200':
+          description: Fetch alias of a profile
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+
+        '400':
+          description: Bad input parameter
+
+  /{perma_id}/bindUsers:
+    post:
+      summary: bind user identities to a known profile
+      operationId: bindUserToProfile
+      description: Merge different identities of a known user to unify the profile
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                format: uuid
+      responses:
+        '201':
+          description: Alias successfully updated
+        '400':
+          description: Invalid alias request
+
+    get:
+      summary: Fetch users bounded to a profile
+      operationId: getUsersBindedToProfile
+      description: Retrieve users bounded to the profile
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the user
+      responses:
+        '200':
+          description: Fetch alias of a profile
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+
+        '400':
+          description: Bad input parameter
+
+  /{perma_id}/consent:
+    get:
+      summary: Fetch profileconsent
+      operationId: getConsentedApps
+      description: Retrieve consented applications to collect data
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the user
+      responses:
+        '200':
+          description: Fetch list of consented apps to collect data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
+
+        '400':
+          description: Bad input parameter
+
+  /{perma_id}/consent/collect:
+    post:
+      summary: provide consent to collect data
+      operationId: giveConsentToCollect
+      description: Capture profile consent to collect data
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                format: uuid
+      responses:
+        '201':
+          description: Alias successfully updated
+        '400':
+          description: Invalid alias request
+
+    get:
+      summary: Fetch applications users has given consent to collect
+      operationId: getConsentedAppsToCollect
+      description: Retrieve consented applications to collect data
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the user
+      responses:
+        '200':
+          description: Fetch list of consented apps to collect data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+
+        '400':
+          description: Bad input parameter
+
+  /{perma_id}/consent/share:
+    post:
+      summary: provide consent to share profile
+      operationId: giveConsentToShare
+      description: Capture profile consent to share data
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                format: uuid
+      responses:
+        '201':
+          description: Alias successfully updated
+        '400':
+          description: Invalid alias request
+
+    get:
+      summary: Fetch applications users has given consent to share
+      operationId: getConsentedAppsToShare
+      description: Retrieve consented applications to share profile data
+      parameters:
+        - in: path
+          name: perma_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier for the user
+      responses:
+        '200':
+          description: Fetch alias of a profile
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+
+        '400':
+          description: Bad input parameter
+
+
+components:
+  schemas:
+    Event:
+      type: object
+      required:
+        - perma_id
+        - app_id
+        - event_type
+        - event_name
+        - event_id
+        - event_timestamp
+        - context
+      properties:
+        event_type:
+          type: string
+          enum: [Identify, Track, Page]
+          description: Type of the event
+        event_name:
+          type: string
+          example: "product_viewed"
+          description: Name of the event
+        event_id:
+          type: string
+          format: uuid
+          description: Unique ID for the event
+        app_id:
+          type: string
+          format: uuid
+          description: Unique ID for the application
+        event_timestamp:
+          type: string
+          format: date-time
+          description: Time at which the event occurred
+        context:
+          type: object
+          description: Device and session information
+        locale:
+          type: string
+          example: "en-US"
+          description: User's language and regional settings
+        properties:
+          oneOf:
+            - $ref: '#/components/schemas/PageEvent'
+            - $ref: '#/components/schemas/TrackEvent'
+            - $ref: '#/components/schemas/IdentifyEvent'
+          discriminator:
+            propertyName: event_type
+            mapping:
+              Page: "#/components/schemas/PageEvent"
+              Track: "#/components/schemas/TrackEvent"
+              Identify: "#/components/schemas/IdentifyEvent"
+
+    PageEvent:
+      type: object
+      description: Event properties for page interactions
+      properties:
+        page:
+          type: object
+          properties:
+            url:
+              type: string
+              description: Full URL of the page
+            path:
+              type: string
+              description: Page path without domain
+            referrer:
+              type: string
+              description: URL of the previous page
+            title:
+              type: string
+              description: Title of the page
+            search:
+              type: string
+              description: Query parameters from the URL
+            page_category:
+              type: string
+              description: Logical category of the page
+            page_type:
+              type: string
+              description: Type of page (e.g., landing_page, blog)
+            content_type:
+              type: string
+              description: Type of content (e.g., article, video)
+            scroll_depth:
+              type: string
+              description: Percentage of page scrolled
+            time_on_page:
+              type: integer
+              description: Time spent on the page in seconds
+            previous_page:
+              type: string
+              description: Identifier for the previous page
+        utm:
+          type: object
+          properties:
+            source:
+              type: string
+              description: Traffic source (e.g., google, facebook)
+            medium:
+              type: string
+              description: Marketing medium (e.g., email, social)
+            campaign:
+              type: string
+              description: Campaign name
+        engagement:
+          type: object
+          properties:
+            engagement_score:
+              type: number
+              description: Custom engagement score
+            interactive_elements:
+              type: array
+              items:
+                type: string
+              description: List of interactive elements clicked
+
+    TrackEvent:
+      type: object
+      description: Event properties for tracking user interactions
+      properties:
+        action:
+          type: string
+          description: The specific action performed (click, scroll)
+        object_type:
+          type: string
+          description: The type of object interacted with (button, product)
+        object_id:
+          type: string
+          description: Unique identifier for the interacted object
+        object_name:
+          type: string
+          description: Human-readable name of the object
+        value:
+          type: number
+          description: A numeric value associated with the event
+        label:
+          type: string
+          description: Additional label for categorization
+        source:
+          type: string
+          description: Source of the interaction (website, mobile app)
+        url:
+          type: string
+          description: URL where the event occurred
+        referrer:
+          type: string
+          description: URL of the referring page
+
+    IdentifyEvent:
+      type: object
+      description: Event properties for user identity tracking
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the user
+        traits:
+          type: object
+          description: Custom user attributes
+          additionalProperties: true
+
+
+    Alias:
+      type: object
+      required:
+        - previous_perma_id
+      properties:
+        previous_perma_id:
+          type: string
+
+    ProfileData:
+      type: object
+      required:
+        - originCountry
+      properties:
+        originCountry:
+          type: string
+          example: LK
+        user_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        identity:
+          $ref: '#/components/schemas/IdentityData'
+        personality:
+          $ref: '#/components/schemas/PersonalityData'
+        app_context:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppContext'
+
+    ProfileDataWithoutAppContext:
+      type: object
+      required:
+        - originCountry
+      properties:
+        originCountry:
+          type: string
+          example: LK
+        user_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        identity:
+          $ref: '#/components/schemas/IdentityData'
+        personality:
+          $ref: '#/components/schemas/PersonalityData'
+
+    IdentityData:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        phone_numbers:
+          type: array
+          items:
+            type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        display_name:
+          type: string
+        preferred_username:
+          type: string
+        profile_url:
+          type: string
+          format: uri
+        picture:
+          type: string
+          format: uri
+        roles:
+          type: array
+          items:
+            type: string
+        groups:
+          type: array
+          items:
+            type: string
+        account_status:
+          type: string
+          enum: [active, inactive, suspended]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        idp_provider:
+          type: string
+        mfa_enabled:
+          type: boolean
+        last_login:
+          type: string
+          format: date-time
+        locale:
+          type: string
+        timezone:
+          type: string
+
+    PersonalityData:
+      type: object
+      properties:
+        interests:
+          type: array
+          items:
+            type: string
+        preferred_language:
+          type: string
+        communication_preferences:
+          type: object
+          properties:
+            email_notifications:
+              type: boolean
+            sms_notifications:
+              type: boolean
+            push_notifications:
+              type: boolean
+        shopping_preferences:
+          type: object
+          properties:
+            favorite_brands:
+              type: array
+              items:
+                type: string
+            discount_preference:
+              type: string
+
+    AppContext:
+      type: object
+      properties:
+        app_id:
+          type: string
+        subscription_plan:
+          type: string
+        app_permissions:
+          type: array
+          items:
+            type: string
+        feature_flags:
+          type: object
+          properties:
+            beta_features_enabled:
+              type: boolean
+            dark_mode:
+              type: boolean
+        last_active_app:
+          type: string
+        usage_metrics:
+          type: object
+          properties:
+            daily_active_time:
+              type: integer
+            monthly_logins:
+              type: integer
+        devices:
+          type: array
+          items:
+            type: object
+            properties:
+              device_id:
+                type: string
+              device_type:
+                type: string
+              os:
+                type: string
+              browser:
+                type: string
+              browser_version:
+                type: string
+              ip:
+                type: string
+              last_used:
+                type: string
+                format: date-time
+        regions_accessed:
+          type: array
+          items:
+            type: object
+            properties:
+              country:
+                type: string
+              city:
+                type: string
+              timezone:
+                type: string
+              first_accessed:
+                type: string
+                format: date-time
+              last_accessed:
+                type: string
+                format: date-time
+    Consent:
+      type: object
+      required:
+        - collect
+        - share
+      properties:
+        collect:
+          type: array
+          items:
+            type: string
+            format: uuid
+        share:
+          type: array
+          items:
+            type: string
+            format: uuid
