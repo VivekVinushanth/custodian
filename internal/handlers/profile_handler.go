@@ -21,7 +21,7 @@ func CreateProfile(c *gin.Context) {
 		return
 	}
 
-	newProfile, err := service.CreateProfile(input)
+	newProfile, err := service.CreateOrUpdateProfile(input)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create profile"})
 		return
@@ -35,6 +35,41 @@ func GetProfile(c *gin.Context) {
 	permaID := c.Param("perma_id") // Extract `perma_id` from URL
 
 	profile, err := service.GetProfile(permaID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving profile"})
+		return
+	}
+
+	if profile == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, profile) // Return profile in JSON format
+}
+
+// DeleteProfile handles profile retrieval requests
+func DeleteProfile(c *gin.Context) {
+	permaID := c.Param("perma_id") // Extract `perma_id` from URL
+
+	profile, err := service.DeleteProfile(permaID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving profile"})
+		return
+	}
+
+	if profile == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, profile) // Return profile in JSON format
+}
+
+// GetAllProfile handles profile retrieval requests
+func GetAllProfile(c *gin.Context) {
+
+	profile, err := service.GetAllProfiles()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving profile"})
 		return

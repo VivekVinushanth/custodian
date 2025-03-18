@@ -38,6 +38,22 @@ func (repo *ProfileRepository) InsertProfile(profile models.Profile) (*mongo.Ins
 	return result, nil
 }
 
+// UpdateProfile saves a profile in MongoDB
+func (repo *ProfileRepository) UpdateProfile(profile models.Profile) (*mongo.InsertOneResult, error) {
+	//logger := pkg.GetLogger()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := repo.Collection.InsertOne(ctx, profile)
+
+	if err != nil {
+		//logger.LogMessage("ERROR", "Failed to insert profile: "+err.Error())
+		return nil, err
+	}
+	//logger.LogMessage("INFO", "Profile inserted with ID: "+result.InsertedID.(string))
+	return result, nil
+}
+
 // FindProfileByID retrieves a profile by `perma_id`
 func (repo *ProfileRepository) FindProfileByID(permaID string) (*models.Profile, error) {
 	//logger := pkg.GetLogger()
@@ -59,13 +75,36 @@ func (repo *ProfileRepository) FindProfileByID(permaID string) (*models.Profile,
 	return &profile, nil
 }
 
+// DeleteProfile removes a profile from MongoDB using `perma_id`
+func (repo *ProfileRepository) DeleteProfile(permaID string) error {
+	//logger := pkg.GetLogger()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"permaid": permaID}
+
+	result, err := repo.Collection.DeleteOne(ctx, filter)
+	if err != nil {
+		//logger.LogMessage("ERROR", "Failed to delete profile: "+err.Error())
+		return err
+	}
+
+	if result.DeletedCount == 0 {
+		//logger.LogMessage("INFO", "No profile found to delete")
+		return mongo.ErrNoDocuments
+	}
+
+	//logger.LogMessage("INFO", "Profile deleted successfully")
+	return nil
+}
+
 // AddOrUpdateAppContext replaces (PUT) or inserts a new AppContext inside Profile
 func (repo *ProfileRepository) AddOrUpdateAppContext(permaID string, appContext models.AppContext) error {
 	//logger := pkg.GetLogger()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	filter := bson.M{"perma_id": permaID, "app_context.app_id": appContext.AppID}
+	filter := bson.M{"perma_id": permaID}
 	update := bson.M{
 		"$set": bson.M{
 			"app_context.$": appContext, // Replace existing app context
@@ -174,8 +213,47 @@ func (repo *ProfileRepository) AddOrUpdatePersonalityData(permaID string, person
 	return nil
 }
 
+// AddOrUpdateIdentityData replaces (PUT) the personality data inside Profile
+func (repo *ProfileRepository) AddOrUpdateIdentityData(permaID string, personalityData models.IdentityData) error {
+	//logger := pkg.GetLogger()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"permaid": permaID}
+	update := bson.M{"$set": bson.M{"identity": personalityData}}
+
+	opts := options.Update().SetUpsert(true) // Insert if not found
+	_, err := repo.Collection.UpdateOne(ctx, filter, update, opts)
+	if err != nil {
+		//logger.LogMessage("ERROR", "Failed to update personality data: "+err.Error())
+		return err
+	}
+
+	//logger.LogMessage("INFO", "Personality data updated for user "+permaID)
+	return nil
+}
+
 // UpdatePersonalityData applies PATCH updates to specific fields of PersonalityData
 func (repo *ProfileRepository) UpdatePersonalityData(permaID string, updates bson.M) error {
+	//logger := pkg.GetLogger()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"permaid": permaID}
+	update := bson.M{"$set": updates}
+
+	_, err := repo.Collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		//logger.LogMessage("ERROR", "Failed to patch personality data: "+err.Error())
+		return err
+	}
+
+	//logger.LogMessage("INFO", "Personality data patched for user " + permaID)
+	return nil
+}
+
+// UpdateIdentityData applies PATCH updates to specific fields of IdentityData
+func (repo *ProfileRepository) UpdateIdentityData(permaID string, updates bson.M) error {
 	//logger := pkg.GetLogger()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -210,4 +288,29 @@ func (repo *ProfileRepository) GetPersonalityProfileData(permaID string) (*model
 	}
 
 	return profile.Personality, nil
+}
+
+// GetAllProfiles retrieves all profiles from MongoDB
+func (repo *ProfileRepository) GetAllProfiles() ([]models.Profile, error) {
+	//logger := pkg.GetLogger()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 🔹 Query MongoDB for all profiles
+	cursor, err := repo.Collection.Find(ctx, bson.M{})
+	if err != nil {
+		//logger.LogMessage("ERROR", "Failed to fetch profiles: "+err.Error())
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var profiles []models.Profile
+	// 🔹 Decode all profiles
+	if err = cursor.All(ctx, &profiles); err != nil {
+		//logger.LogMessage("ERROR", "Error decoding profiles: "+err.Error())
+		return nil, err
+	}
+
+	//logger.LogMessage("INFO", "Successfully fetched profiles")
+	return profiles, nil
 }

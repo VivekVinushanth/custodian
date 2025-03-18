@@ -10,9 +10,11 @@ func RegisterRoutes(router *gin.Engine) {
 		profile := base.Group("/profile")
 		{
 			profile.POST("/", CreateProfile)
+			profile.GET("/", GetAllProfile)
 		}
 
 		base.GET("/:perma_id/profile", GetProfile)
+		base.DELETE("/:perma_id/profile", DeleteProfile)
 
 		// App Context APIs
 		appContext := base.Group("/:perma_id/profile")
@@ -58,6 +60,15 @@ func RegisterRoutes(router *gin.Engine) {
 			consent.DELETE("/", RevokeAllConsents)
 			consent.DELETE("/:app_id/collect/", RevokeConsentToCollect)
 			consent.DELETE("/:app_id/:share", RevokeConsentToShare)
+		}
+
+		unification := base.Group("/unification_rules")
+		{
+			unification.POST("/", CreateUnificationRule)
+			unification.GET("/", GetUnificationRules)
+			unification.PUT("/:rule_name", UpdateUnificationRule)
+			unification.PATCH("/:rule_name", PatchUnificationRule)
+			unification.DELETE("/:rule_name", DeleteUnificationRule)
 		}
 
 	}

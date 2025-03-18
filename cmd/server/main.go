@@ -5,7 +5,9 @@ import (
 	"custodian/internal/pkg"
 	"fmt"
 	"log"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,6 +33,16 @@ func main() {
 
 	// Apply API request logging middleware
 	router.Use(logger.LogMiddleware())
+
+	// 🔹 Apply CORS middleware
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"}, // Allow all origins
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// Register routes
 	logger.LogMessage("INFO", fmt.Sprintf("🚀 Your data Custodian has started operating in %s mode on port 8080", config.Env))
