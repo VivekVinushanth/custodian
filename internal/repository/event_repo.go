@@ -97,3 +97,20 @@ func (repo *EventRepository) GetUserEvents(permaID string) ([]models.Event, erro
 
 	return events, nil
 }
+
+func (repo *EventRepository) DeleteEvent(permaID, eventID string) error {
+	filter := bson.M{"perma_id": permaID, "event_id": eventID}
+	_, err := repo.Collection.DeleteOne(context.TODO(), filter)
+	return err
+}
+
+func (repo *EventRepository) DeleteEventsByPermaID(permaID string) error {
+	_, err := repo.Collection.DeleteMany(context.TODO(), bson.M{"perma_id": permaID})
+	return err
+}
+
+func (repo *EventRepository) DeleteEventsByAppID(permaID, appID string) error {
+	filter := bson.M{"perma_id": permaID, "app_id": appID}
+	_, err := repo.Collection.DeleteMany(context.TODO(), filter)
+	return err
+}

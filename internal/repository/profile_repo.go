@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"custodian/internal/models"
+	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
@@ -98,37 +99,40 @@ func (repo *ProfileRepository) DeleteProfile(permaID string) error {
 	return nil
 }
 
-// AddOrUpdateAppContext replaces (PUT) or inserts a new AppContext inside Profile
 func (repo *ProfileRepository) AddOrUpdateAppContext(permaID string, appContext models.AppContext) error {
-	//logger := pkg.GetLogger()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	filter := bson.M{"perma_id": permaID}
+	// Step 1: Try to update existing app_context by app_id using positional $
+	filter := bson.M{
+		"perma_id":           permaID,
+		"app_context.app_id": appContext.AppID, // Required for positional operator
+	}
 	update := bson.M{
 		"$set": bson.M{
-			"app_context.$": appContext, // Replace existing app context
+			"app_context.$": appContext, // Update matching array element
 		},
 	}
 
-	opts := options.Update().SetUpsert(true) // Insert if not found
-	res, err := repo.Collection.UpdateOne(ctx, filter, update, opts)
+	res, err := repo.Collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		//logger.LogMessage("ERROR", "Failed to update app context: "+err.Error())
-		return err
+		return fmt.Errorf("failed to update app_context: %w", err)
 	}
 
-	// If no documents were modified, insert a new array element
+	// Step 2: If no match, push the new appContext into the array
 	if res.MatchedCount == 0 {
-		update = bson.M{"$push": bson.M{"app_context": appContext}} // Append new app context
-		_, err = repo.Collection.UpdateOne(ctx, bson.M{"perma_id": permaID}, update)
+		pushFilter := bson.M{"perma_id": permaID}
+		push := bson.M{
+			"$push": bson.M{
+				"app_context": appContext,
+			},
+		}
+		_, err := repo.Collection.UpdateOne(ctx, pushFilter, push)
 		if err != nil {
-			//logger.LogMessage("ERROR", "Failed to insert new app context: "+err.Error())
-			return err
+			return fmt.Errorf("failed to insert new app_context: %w", err)
 		}
 	}
 
-	//logger.LogMessage("INFO", "App context updated for user "+permaID)
 	return nil
 }
 

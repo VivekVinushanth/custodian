@@ -80,7 +80,13 @@ func CreateOrUpdateProfile(input UserInput) (*models.Profile, error) {
 					}
 				}
 				profileRepo.AddOrUpdateUserIds(mergedProfile.PermaID, mergedProfile.UserIds)
-				profileRepo.AddOrUpdatePersonalityData(mergedProfile.PermaID, *mergedProfile.Personality)
+
+				if mergedProfile.Personality != nil {
+					err := profileRepo.AddOrUpdatePersonalityData(mergedProfile.PermaID, *mergedProfile.Personality)
+					if err != nil {
+						log.Println("Failed to update PersonalityData:", err)
+					}
+				}
 				profileRepo.AddOrUpdateIdentityData(mergedProfile.PermaID, *mergedProfile.Identity)
 
 				return &mergedProfile, nil
@@ -202,11 +208,18 @@ func GetProfile(permaID string) (*models.Profile, error) {
 func DeleteProfile(permaID string) (*models.Profile, error) {
 	mongoDB := pkg.GetMongoDBInstance()
 	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
+	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events") // assuming your event collection name is "events"
 
 	// 🔹 Fetch the existing profile before deletion
 	existingProfile, err := profileRepo.FindProfileByID(permaID)
 	if err != nil {
 		return nil, errors.New("profile not found")
+	}
+
+	// 🔹 Delete related events
+	if err := eventRepo.DeleteEventsByPermaID(permaID); err != nil {
+		// Optional: log the error but still return the deleted profile
+		log.Println("Failed to delete events for PermaID:", permaID)
 	}
 
 	// 🔹 Delete the profile
