@@ -10,7 +10,6 @@ import (
 
 // AddEvent handles adding a single event
 func AddEvent(c *gin.Context) {
-	permaID := c.Param("perma_id")
 
 	var event models.Event
 
@@ -18,8 +17,6 @@ func AddEvent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
-	event.PermaID = permaID
-
 	err := service.AddEvent(event)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add event"})

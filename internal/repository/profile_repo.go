@@ -314,3 +314,32 @@ func (repo *ProfileRepository) GetAllProfiles() ([]models.Profile, error) {
 	//logger.LogMessage("INFO", "Successfully fetched profiles")
 	return profiles, nil
 }
+
+// AddOrUpdateUserIds merges and updates the user_ids list inside the profile
+func (repo *ProfileRepository) AddOrUpdateUserIds(permaID string, newUserIds []string) error {
+	//logger := pkg.GetLogger()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Step 1: Fetch the existing user_ids
+	var profile models.Profile
+	err := repo.Collection.FindOne(ctx, bson.M{"permaid": permaID}).Decode(&profile)
+	if err != nil && err != mongo.ErrNoDocuments {
+		//logger.LogMessage("ERROR", "Failed to fetch profile for user_ids merge: "+err.Error())
+		return err
+	}
+
+	// Step 2: Perform the update
+	filter := bson.M{"permaid": permaID}
+	update := bson.M{"$set": bson.M{"userids": newUserIds}}
+
+	opts := options.Update().SetUpsert(true)
+	_, err = repo.Collection.UpdateOne(ctx, filter, update, opts)
+	if err != nil {
+		//logger.LogMessage("ERROR", "Failed to update user_ids: "+err.Error())
+		return err
+	}
+
+	//logger.LogMessage("INFO", "User IDs updated for user "+permaID)
+	return nil
+}

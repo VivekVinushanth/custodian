@@ -79,6 +79,7 @@ func CreateOrUpdateProfile(input UserInput) (*models.Profile, error) {
 						log.Println("Failed to update AppContext for:", appCtx.AppID, "Error:", err)
 					}
 				}
+				profileRepo.AddOrUpdateUserIds(mergedProfile.PermaID, mergedProfile.UserIds)
 				profileRepo.AddOrUpdatePersonalityData(mergedProfile.PermaID, *mergedProfile.Personality)
 				profileRepo.AddOrUpdateIdentityData(mergedProfile.PermaID, *mergedProfile.Identity)
 
@@ -292,7 +293,7 @@ func mergeProfiles(existing models.Profile, newProfile models.Profile) models.Pr
 	mergedProfile := existing
 
 	// 🔹 Merge `user_ids`
-	mergedProfile.UserIds = mergeLists(existing.UserIds, newProfile.UserIds)
+	mergedProfile.UserIds = mergeUserIDs(existing.UserIds, newProfile.UserIds)
 
 	// 🔹 Merge `identity`
 	if newProfile.Identity != nil {
@@ -315,6 +316,28 @@ func mergeProfiles(existing models.Profile, newProfile models.Profile) models.Pr
 	}
 
 	return mergedProfile
+}
+
+// mergeUserIDs combines two lists of user IDs and removes duplicates
+func mergeUserIDs(existing, incoming []string) []string {
+	idSet := make(map[string]bool)
+	var merged []string
+
+	for _, id := range existing {
+		if !idSet[id] {
+			merged = append(merged, id)
+			idSet[id] = true
+		}
+	}
+
+	for _, id := range incoming {
+		if !idSet[id] {
+			merged = append(merged, id)
+			idSet[id] = true
+		}
+	}
+
+	return merged
 }
 
 // mergeAppContexts merges app contexts, ensuring grouping by `app_id`
