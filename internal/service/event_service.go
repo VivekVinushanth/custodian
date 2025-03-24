@@ -4,11 +4,18 @@ import (
 	"custodian/internal/models"
 	"custodian/internal/pkg"
 	"custodian/internal/repository"
+	"fmt"
 )
 
 // AddEvent stores a single event in MongoDB
 func AddEvent(event models.Event) error {
 	mongoDB := pkg.GetMongoDBInstance()
+	// Check if the profile exists for the perma_id
+	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
+	existingProfile, err := profileRepo.FindProfileByID(event.PermaID)
+	if err != nil || existingProfile == nil {
+		return fmt.Errorf("profile_not_found")
+	}
 	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
 	return eventRepo.AddEvent(event)
 }
