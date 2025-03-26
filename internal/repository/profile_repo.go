@@ -256,6 +256,16 @@ func (repo *ProfileRepository) UpdatePersonalityData(permaID string, updates bso
 	return nil
 }
 
+// UpdatePreferenceData applies PATCH updates to specific fields of PersonalityData
+func (repo *ProfileRepository) UpdatePreferenceData(permaID string, updates bson.M) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"permaid": permaID}
+	_, err := repo.Collection.UpdateOne(ctx, filter, updates)
+	return err
+}
+
 // UpdateIdentityData applies PATCH updates to specific fields of IdentityData
 func (repo *ProfileRepository) UpdateIdentityData(permaID string, updates bson.M) error {
 	//logger := pkg.GetLogger()

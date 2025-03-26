@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"log"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -310,7 +311,11 @@ func mergeProfiles(existing models.Profile, newProfile models.Profile) models.Pr
 
 	// 🔹 Merge `identity`
 	if newProfile.Identity != nil {
-		mergedProfile.Identity = newProfile.Identity
+		if mergedProfile.Identity == nil {
+			mergedProfile.Identity = newProfile.Identity
+		} else {
+			mergeStructFields(mergedProfile.Identity, newProfile.Identity)
+		}
 	}
 
 	// 🔹 Merge `personality`
@@ -329,6 +334,64 @@ func mergeProfiles(existing models.Profile, newProfile models.Profile) models.Pr
 	}
 
 	return mergedProfile
+}
+
+// mergeStructFields merges non-zero fields from `src` into `dest`
+func mergeStructFields(dest interface{}, src interface{}) {
+	destVal := reflect.ValueOf(dest).Elem()
+	srcVal := reflect.ValueOf(src).Elem()
+
+	for i := 0; i < srcVal.NumField(); i++ {
+		field := srcVal.Type().Field(i)
+		srcField := srcVal.Field(i)
+		destField := destVal.FieldByName(field.Name)
+
+		// Skip if not settable or zero value
+		if !destField.CanSet() || isZeroValue(srcField) {
+			continue
+		}
+
+		// Handle slices: combine with deduplication
+		if srcField.Kind() == reflect.Slice {
+			merged := mergeSlices(destField.Interface(), srcField.Interface())
+			destField.Set(reflect.ValueOf(merged))
+			continue
+		}
+
+		// Simple overwrite
+		destField.Set(srcField)
+	}
+}
+
+// isZeroValue checks if a field is zero value (e.g. "", nil, 0, false)
+func isZeroValue(v reflect.Value) bool {
+	return reflect.DeepEqual(v.Interface(), reflect.Zero(v.Type()).Interface())
+}
+
+// mergeSlices merges two slices and removes duplicates
+func mergeSlices(a, b interface{}) interface{} {
+	aVal := reflect.ValueOf(a)
+	bVal := reflect.ValueOf(b)
+
+	existing := make(map[interface{}]bool)
+	result := reflect.MakeSlice(aVal.Type(), 0, aVal.Len()+bVal.Len())
+
+	// Helper to append unique values
+	appendUnique := func(val reflect.Value) {
+		if !existing[val.Interface()] {
+			existing[val.Interface()] = true
+			result = reflect.Append(result, val)
+		}
+	}
+
+	for i := 0; i < aVal.Len(); i++ {
+		appendUnique(aVal.Index(i))
+	}
+	for i := 0; i < bVal.Len(); i++ {
+		appendUnique(bVal.Index(i))
+	}
+
+	return result.Interface()
 }
 
 // mergeUserIDs combines two lists of user IDs and removes duplicates

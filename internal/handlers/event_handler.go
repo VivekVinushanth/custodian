@@ -3,7 +3,9 @@ package handlers
 import (
 	"custodian/internal/models"
 	"custodian/internal/service"
+	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,32 +19,95 @@ func AddEvent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
-	err := service.AddEvent(event)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add event"})
+
+	switch strings.ToLower(event.EventType) {
+	case "track":
+		var trackEvent models.TrackEvent
+		propBytes, _ := json.Marshal(event.Properties)
+		if err := json.Unmarshal(propBytes, &trackEvent); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid track event properties"})
+			return
+		}
+		event.Properties = map[string]interface{}{"track_event": trackEvent}
+
+	case "page":
+		var pageEvent models.PageEvent
+		propBytes, _ := json.Marshal(event.Properties)
+		if err := json.Unmarshal(propBytes, &pageEvent); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page event properties"})
+			return
+		}
+		event.Properties = map[string]interface{}{"page_event": pageEvent}
+
+	case "identify":
+		var identifyEvent models.IdentifyEvent
+		propBytes, _ := json.Marshal(event.Properties)
+		if err := json.Unmarshal(propBytes, &identifyEvent); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid identify event properties"})
+			return
+		}
+		event.Properties = map[string]interface{}{"identify_event": identifyEvent}
+
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported event type"})
+		return
+	}
+
+	if err := service.AddEvent(event); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Event added successfully"})
 }
 
-// AddEvents handles batch event creation
+// AddEvents handles adding multiple events
 func AddEvents(c *gin.Context) {
-	permaID := c.Param("perma_id")
-
 	var events []models.Event
+
 	if err := c.ShouldBindJSON(&events); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	for i := range events {
-		events[i].PermaID = permaID
+	// Decode and structure each event's properties correctly
+	for i, event := range events {
+		switch strings.ToLower(event.EventType) {
+		case "track":
+			var trackEvent models.TrackEvent
+			propBytes, _ := json.Marshal(event.Properties)
+			if err := json.Unmarshal(propBytes, &trackEvent); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid track event properties"})
+				return
+			}
+			events[i].Properties = map[string]interface{}{"track_event": trackEvent}
+
+		case "page":
+			var pageEvent models.PageEvent
+			propBytes, _ := json.Marshal(event.Properties)
+			if err := json.Unmarshal(propBytes, &pageEvent); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page event properties"})
+				return
+			}
+			events[i].Properties = map[string]interface{}{"page_event": pageEvent}
+
+		case "identify":
+			var identifyEvent models.IdentifyEvent
+			propBytes, _ := json.Marshal(event.Properties)
+			if err := json.Unmarshal(propBytes, &identifyEvent); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid identify event properties"})
+				return
+			}
+			events[i].Properties = map[string]interface{}{"identify_event": identifyEvent}
+
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported event type in batch"})
+			return
+		}
 	}
 
-	err := service.AddEvents(events)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add events"})
+	if err := service.AddEvents(events); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -65,6 +130,9 @@ func GetUserEvent(c *gin.Context) {
 		return
 	}
 
+	// Re-decode properties based on type
+	service.DecodeEventProperties(event)
+
 	c.JSON(http.StatusOK, event)
 }
 
@@ -76,6 +144,11 @@ func GetUserEvents(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events"})
 		return
+	}
+
+	// Decode all event properties
+	for i := range events {
+		service.DecodeEventProperties(&events[i])
 	}
 
 	c.JSON(http.StatusOK, events)

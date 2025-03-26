@@ -32,6 +32,15 @@ func RegisterRoutes(router *gin.Engine) {
 			personality.PATCH("/", UpdatePersonalityData)
 			personality.GET("/", GetPersonalityProfileData)
 		}
+		//
+		//schema := base.Group("/schema")
+		//{
+		//	schema.POST("/profile", AddProfileSchema)
+		//	schema.GET("/profile", GetProfileSchema)
+		//	schema.PUT("/profile", ReplaceProfileSchema)
+		//	schema.PATCH("/profile", PatchProfileSchema)
+		//	schema.DELETE("/profile", DeleteProfileSchema)
+		//}
 
 		// Alias APIs
 		//alias := base.Group("/:perma_id/alias")

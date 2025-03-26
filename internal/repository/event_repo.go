@@ -67,14 +67,10 @@ func (repo *EventRepository) GetUserEvent(permaID, eventID string) (*models.Even
 
 	filter := bson.M{"perma_id": permaID, "event_id": eventID}
 	var event models.Event
-
 	err := repo.Collection.FindOne(ctx, filter).Decode(&event)
-	if err == mongo.ErrNoDocuments {
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
-
 	return &event, nil
 }
 
@@ -91,8 +87,11 @@ func (repo *EventRepository) GetUserEvents(permaID string) ([]models.Event, erro
 	defer cursor.Close(ctx)
 
 	var events []models.Event
-	if err := cursor.All(ctx, &events); err != nil {
-		return nil, err
+	for cursor.Next(ctx) {
+		var event models.Event
+		if err := cursor.Decode(&event); err == nil {
+			events = append(events, event)
+		}
 	}
 
 	return events, nil
