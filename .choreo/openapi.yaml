@@ -473,7 +473,6 @@ paths:
                 items:
                   type: string
                   format: uuid
-
         '400':
           description: Bad input parameter
 
@@ -841,7 +840,6 @@ paths:
                 items:
                   type: string
                   format: uuid
-
         '400':
           description: Bad input parameter
 
