@@ -1,0 +1,12 @@
+schemaVersion: "1.1"
+endpoints:
+  - name: ems-rest-endpoint-5c6
+    displayName: EMS REST Endpoint
+    service:
+      basePath: /
+      port: 8080
+    type: REST
+    networkVisibilities:
+      - Project
+      - Public
+    schemaFilePath: docs/openapi.yaml
