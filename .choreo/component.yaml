@@ -555,6 +555,188 @@ paths:
         '400':
           description: Bad input parameter
 
+  /schema/profile:
+    post:
+      summary: Add new profile schema definition
+      operationId: addProfileSchema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/SchemaDefinition'
+      responses:
+        '201':
+          description: Schema added successfully
+
+    get:
+      summary: Get profile schema definition
+      operationId: getProfileSchema
+      responses:
+        '200':
+          description: Profile schema retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SchemaDefinition'
+
+    put:
+      summary: Replace entire profile schema
+      operationId: replaceProfileSchema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/SchemaDefinition'
+      responses:
+        '200':
+          description: Schema replaced successfully
+
+    patch:
+      summary: Patch profile schema
+      operationId: patchProfileSchema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/SchemaDefinition'
+      responses:
+        '200':
+          description: Schema patched successfully
+        '400':
+          description: Bad request
+        '500':
+          description: Server encountered error while responding to the request
+
+    delete:
+      summary: Delete profile schema
+      operationId: deleteProfileSchema
+      parameters:
+        - in: query
+          name: attribute
+          schema:
+            type: string
+          required: true
+          description: Attribute path to delete
+          example: identity.email
+      responses:
+        '204':
+          description: Schema entry deleted
+
+  /schema/event/{event_type}:
+    post:
+      summary: Add new event schema definition
+      operationId: addEventSchema
+      parameters:
+        - in: path
+          name: event_type
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/SchemaDefinition'
+      responses:
+        '201':
+          description: Event schema added
+
+    get:
+      summary: Get event schema definition by type
+      operationId: getEventSchema
+      parameters:
+        - in: path
+          name: event_type
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Event schema retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SchemaDefinition'
+
+
+
+    put:
+      summary: Replace event schema
+      operationId: replaceEventSchema
+      parameters:
+        - in: path
+          name: event_type
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/SchemaDefinition'
+      responses:
+        '200':
+          description: Schema replaced
+
+    patch:
+      summary: Patch event schema
+      operationId: patchEventSchema
+      parameters:
+        - in: path
+          name: event_type
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/SchemaDefinition'
+      responses:
+        '200':
+          description: Event schema patched
+
+    delete:
+      summary: Delete event schema
+      operationId: deleteEventSchema
+      parameters:
+        - in: path
+          name: event_type
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: attribute
+          schema:
+            type: string
+          required: true
+          description: Attribute path to delete
+      responses:
+        '200':
+          description: Attribute deleted
+
   /{perma_id}/consent/collect:
     post:
       summary: provide consent to collect data
@@ -662,6 +844,8 @@ paths:
 
         '400':
           description: Bad input parameter
+
+
 
 
 components:
@@ -1037,3 +1221,27 @@ components:
           items:
             type: string
             format: uuid
+
+    SchemaDefinition:
+      type: object
+      required:
+        - attribute
+        - type
+      properties:
+        attribute:
+          type: string
+          description: JSON path (e.g., identity.email)
+        type:
+          type: string
+          enum: [string, number, boolean, array, object]
+        merge_strategy:
+          type: string
+          enum: [unify, combine, ignore]
+          default: unify
+        masking:
+          type: boolean
+          default: false
+        masking_strategy:
+          type: string
+          enum: [hash, redacted, partial, none]
+          default: none
