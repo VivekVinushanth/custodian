@@ -265,7 +265,7 @@ paths:
 
     patch:
       summary: update personality data for a user
-      operationId: addPersonalityData
+      operationId: patchPersonalityData
       description: Stores personality data linked to a user
       parameters:
         - in: path
@@ -367,7 +367,7 @@ paths:
           description: Bad input parameter
     patch:
       summary: update personality data for a user
-      operationId: addAppContextData
+      operationId: patchAppContextData
       description: Stores personality data linked to a user
       parameters:
         - in: path
@@ -673,9 +673,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SchemaDefinition'
-
-
-
     put:
       summary: Replace event schema
       operationId: replaceEventSchema
