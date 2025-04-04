@@ -3,6 +3,7 @@ package service
 import (
 	"custodian/internal/models"
 	"custodian/internal/pkg"
+
 	"custodian/internal/repository"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,24 +14,27 @@ import (
 
 // AddEvent stores a single event in MongoDB
 func AddEvent(event models.Event) error {
-	mongoDB := pkg.GetMongoDBInstance()
-	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
-
 	if event.PermaID == "" {
 		return fmt.Errorf("perma_id not found")
 	}
 
-	if _, err := CreateOrUpdateProfile(event); err != nil {
-		return fmt.Errorf("failed to create new profile: %v", err)
+	// Step 1: Ensure profile exists (with lock protection)
+	_, err := CreateOrUpdateProfile(event)
+	if err != nil {
+		return fmt.Errorf("failed to create or fetch profile: %v", err)
 	}
 
-	// 🔸 Store the event
-	profile, _ := profileRepo.FindProfileByID(event.PermaID)
-	if profile != nil {
-		eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
-		return eventRepo.AddEvent(event)
+	// Step 2: Store the event
+	mongoDB := pkg.GetMongoDBInstance()
+	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
+	if err := eventRepo.AddEvent(event); err != nil {
+		return fmt.Errorf("failed to store event: %v", err)
 	}
-	return fmt.Errorf("profile not found")
+
+	// Step 3: Enqueue the event for enrichment/unification (async)
+	EnqueueEventForProcessing(event)
+
+	return nil
 }
 
 // AddEvents stores multiple events in MongoDB

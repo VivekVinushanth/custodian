@@ -33,67 +33,43 @@ func CreateOrUpdateProfile(event models.Event) (*models.Profile, error) {
 	lockKey := "lock:profile:" + event.PermaID
 
 	// 🔁 Retry logic for acquiring the lock
-	maxAttempts := 5
-	retryDelay := 100 * time.Millisecond
+	maxAttempts := 10
 	var acquired bool
 	var err error
-
 	for i := 0; i < maxAttempts; i++ {
-		acquired, err = lock.Acquire(lockKey, 5*time.Second)
+		acquired, err = lock.Acquire(lockKey, 1*time.Second)
 		if err != nil {
-			return nil, fmt.Errorf("failed to acquire lock for unification: %v", err)
+			return nil, fmt.Errorf("failed to acquire lock: %v", err)
 		}
 		if acquired {
 			break
 		}
-		log.Printf("Lock busy for %s, retrying (%d/%d)...", event.PermaID, i+1, maxAttempts)
-		time.Sleep(retryDelay)
+		time.Sleep(100 * time.Millisecond)
 	}
-
 	if !acquired {
-		return nil, fmt.Errorf("could not acquire lock for profile %s after %d attempts", event.PermaID, maxAttempts)
+		return nil, fmt.Errorf("could not acquire lock for profile %s after retries", event.PermaID)
 	}
 	defer lock.Release(lockKey)
 
-	// 🔸 Step 1: Insert profile (upsert behavior)
-	initialProfile := models.Profile{
+	// Safe insert if not exists (upsert)
+	profile := models.Profile{
 		PermaID: event.PermaID,
 		ProfileHierarchy: &models.ProfileHierarchy{
 			IsMaster:    true,
 			ListProfile: true,
 		},
 	}
-	_ = profileRepo.InsertProfile(initialProfile)
-
-	// 🔁 Step 2: Wait for profile to be available (optional for visibility delay)
-	profile, err := waitForProfile(event.PermaID, 10, 100*time.Millisecond)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch profile after insert attempt: %v", err)
-	}
-	if profile == nil {
-		return nil, fmt.Errorf("profile still not visible after retries")
+	if err := profileRepo.InsertProfile(profile); err != nil {
+		return nil, fmt.Errorf("failed to insert or ensure profile: %v", err)
 	}
 
-	// 🔸 Step 3: Enrich profile
-	if err := EnrichProfile(event); err != nil {
-		return nil, err
+	// Wait for consistency
+	profileFetched, err := waitForProfile(event.PermaID, 10, 100*time.Millisecond)
+	if err != nil || profileFetched == nil {
+		return nil, fmt.Errorf("profile not visible after insert: %v", err)
 	}
 
-	// 🔸 Step 4: Re-fetch and unify
-	enrichedProfile, err := profileRepo.FindProfileByID(event.PermaID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to re-fetch profile after enrichment: %v", err)
-	}
-	if enrichedProfile == nil {
-		return nil, fmt.Errorf("profile unexpectedly missing after enrichment")
-	}
-
-	_, err = unifyProfiles(*enrichedProfile)
-	if err != nil {
-		return nil, err
-	}
-
-	return enrichedProfile, nil
+	return profileFetched, nil
 }
 
 func unifyProfiles(newProfile models.Profile) (*models.Profile, error) {

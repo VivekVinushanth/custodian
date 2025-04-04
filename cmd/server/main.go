@@ -3,6 +3,7 @@ package main
 import (
 	"custodian/internal/handlers"
 	"custodian/internal/pkg"
+	"custodian/internal/service"
 	"fmt"
 	"log"
 	"time"
@@ -52,6 +53,9 @@ func main() {
 	mongoDB := pkg.ConnectMongoDB(config.Mongodb.Uri, config.Mongodb.Database)
 
 	pkg.InitLocks(mongoDB.Database)
+
+	// Initialize Event queue
+	service.StartEnrichmentWorker()
 
 	// Register routes
 	handlers.RegisterRoutes(router)
