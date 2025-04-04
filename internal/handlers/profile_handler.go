@@ -12,24 +12,6 @@ func Index(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Your data Custodian is up and running"})
 }
 
-// CreateProfile handles HTTP profile creation requests
-func CreateProfile(c *gin.Context) {
-
-	var input service.UserInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	newProfile, err := service.CreateOrUpdateProfile(input)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create profile"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, newProfile)
-}
-
 // GetProfile handles profile retrieval requests
 func GetProfile(c *gin.Context) {
 	permaID := c.Param("perma_id") // Extract `perma_id` from URL
@@ -94,7 +76,6 @@ func AddOrUpdateAppContext(c *gin.Context) {
 		return
 	}
 
-	appContext.PermaID = permaID
 	appContext.AppID = appID
 
 	err := service.AddOrUpdateAppContext(permaID, appContext)

@@ -6,12 +6,14 @@ import (
 	"custodian/internal/repository"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"log"
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 )
 
 // UserInput represents input data for creating a profile
@@ -23,44 +25,105 @@ type UserInput struct {
 	AppContext    []models.AppContext     `json:"app_context,omitempty"`
 }
 
-// CreateOrUpdateProfile handles the business logic of creating a new user profile
-func CreateOrUpdateProfile(input UserInput) (*models.Profile, error) {
-
-	// ✅ Validate that all `app_context` items have `app_id`
-	if input.OriginCountry == "" {
-		//logger.LogMessage("ERROR", "Validation failed: app_id is required in app_context")
-		return nil, errors.New("origin_country is required")
-	}
-
-	// ✅ Validate that all `app_context` items have `app_id`
-	for _, app := range input.AppContext {
-		if app.AppID == "" {
-			//logger.LogMessage("ERROR", "Validation failed: app_id is required in app_context")
-			return nil, errors.New("app_id is required in app_context")
-		}
-	}
-
+func CreateOrUpdateProfile(event models.Event) (*models.Profile, error) {
 	mongoDB := pkg.GetMongoDBInstance()
 	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
-	unificationRepo := repositories.NewUnificationRepository(mongoDB.Database, "unification_rules")
 
-	newProfile := models.Profile{
-		PermaID:       uuid.NewString(),
-		OriginCountry: input.OriginCountry,
-		UserIds:       input.UserIds,
-		Identity:      input.Identity,
-		Personality:   input.Personality,
-		AppContext:    input.AppContext,
+	lock := pkg.GetDistributedLock()
+	lockKey := "lock:profile:" + event.PermaID
+
+	// 🔁 Retry logic for acquiring the lock
+	maxAttempts := 5
+	retryDelay := 100 * time.Millisecond
+	var acquired bool
+	var err error
+
+	for i := 0; i < maxAttempts; i++ {
+		acquired, err = lock.Acquire(lockKey, 5*time.Second)
+		if err != nil {
+			return nil, fmt.Errorf("failed to acquire lock for unification: %v", err)
+		}
+		if acquired {
+			break
+		}
+		log.Printf("Lock busy for %s, retrying (%d/%d)...", event.PermaID, i+1, maxAttempts)
+		time.Sleep(retryDelay)
 	}
 
-	// 🔹 Step 1: Fetch all unification rules
+	if !acquired {
+		return nil, fmt.Errorf("could not acquire lock for profile %s after %d attempts", event.PermaID, maxAttempts)
+	}
+	defer lock.Release(lockKey)
+
+	// 🔸 Step 1: Insert profile (upsert behavior)
+	initialProfile := models.Profile{
+		PermaID: event.PermaID,
+		ProfileHierarchy: &models.ProfileHierarchy{
+			IsMaster:    true,
+			ListProfile: true,
+		},
+	}
+	_ = profileRepo.InsertProfile(initialProfile)
+
+	// 🔁 Step 2: Wait for profile to be available (optional for visibility delay)
+	profile, err := waitForProfile(event.PermaID, 10, 100*time.Millisecond)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch profile after insert attempt: %v", err)
+	}
+	if profile == nil {
+		return nil, fmt.Errorf("profile still not visible after retries")
+	}
+
+	// 🔸 Step 3: Enrich profile
+	if err := EnrichProfile(event); err != nil {
+		return nil, err
+	}
+
+	// 🔸 Step 4: Re-fetch and unify
+	enrichedProfile, err := profileRepo.FindProfileByID(event.PermaID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to re-fetch profile after enrichment: %v", err)
+	}
+	if enrichedProfile == nil {
+		return nil, fmt.Errorf("profile unexpectedly missing after enrichment")
+	}
+
+	_, err = unifyProfiles(*enrichedProfile)
+	if err != nil {
+		return nil, err
+	}
+
+	return enrichedProfile, nil
+}
+
+func unifyProfiles(newProfile models.Profile) (*models.Profile, error) {
+	mongoDB := pkg.GetMongoDBInstance()
+
+	lock := pkg.GetDistributedLock()
+	lockKey := "lock:unify:" + newProfile.PermaID
+
+	// Try to acquire the lock before doing unification
+	acquired, err := lock.Acquire(lockKey, 5*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire lock for unification: %v", err)
+	}
+	if !acquired {
+		log.Println("Unification already in progress for:", newProfile.PermaID)
+		return nil, nil // Or retry logic if needed
+	}
+	defer lock.Release(lockKey) // Always release
+
+	unificationRepo := repositories.NewUnificationRepository(mongoDB.Database, "unification_rules")
+	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
+
+	// Step 1: Fetch all unification rules
 	unificationRules, err := unificationRepo.GetUnificationRules()
 	if err != nil {
 		return nil, errors.New("failed to fetch unification rules")
 	}
 
 	// 🔹 Step 2: Fetch all existing profiles from DB
-	existingProfiles, err := profileRepo.GetAllProfiles()
+	existingMasterProfiles, err := profileRepo.GetAllMasterProfilesExceptForCurrent(newProfile)
 	if err != nil {
 		return nil, errors.New("failed to fetch existing profiles")
 	}
@@ -69,38 +132,84 @@ func CreateOrUpdateProfile(input UserInput) (*models.Profile, error) {
 	for _, rule := range unificationRules {
 		sortRulesByPriority(rule.Rules)
 
-		// Check each existing profile against the new profile
-		for _, existingProfile := range existingProfiles {
+		for _, existingProfile := range existingMasterProfiles {
+
 			if doesProfileMatch(existingProfile, newProfile, rule) {
-				// Merge profiles and update DB
-				mergedProfile := mergeProfiles(existingProfile, newProfile)
-				for _, appCtx := range mergedProfile.AppContext {
-					err := profileRepo.AddOrUpdateAppContext(mergedProfile.PermaID, appCtx)
+
+				// 🔄 Merge the existing master to the old master of current
+				newMasterProfile := mergeProfiles(existingProfile, newProfile)
+
+				if len(existingProfile.ProfileHierarchy.ChildProfiles) == 0 {
+					newMasterProfile.PermaID = uuid.New().String()
+					newMasterProfile.ProfileHierarchy = &models.ProfileHierarchy{
+						IsMaster:      true,
+						ListProfile:   false,
+						ChildProfiles: []string{newProfile.PermaID, existingProfile.PermaID},
+					}
+
+					// creating and inserting the new master profile
+					err := profileRepo.InsertProfile(newMasterProfile)
+					if err != nil {
+						return nil, err
+					}
+
+					// Attaching peer profiles for each of the child profiles of old master profile
+					profileRepo.LinkPeers(newProfile.PermaID, existingProfile.PermaID, rule.RuleName)
+					err = profileRepo.UpdateParent(newMasterProfile, newProfile)
+					err = profileRepo.UpdateParent(newMasterProfile, existingProfile)
+					if err != nil {
+						return nil, err
+					}
+
+				} else if (len(existingProfile.ProfileHierarchy.ChildProfiles) > 0) && existingProfile.ProfileHierarchy.IsMaster {
+					// Loop through all child profile and attach the peer
+					for _, childProfileID := range existingProfile.ProfileHierarchy.ChildProfiles {
+						if childProfileID == newProfile.PermaID {
+							continue
+						}
+						if err != nil {
+							return nil, errors.New("failed to fetch child profile")
+						}
+						profileRepo.LinkPeers(newProfile.PermaID, childProfileID, rule.RuleName)
+					}
+
+					err = profileRepo.UpdateParent(newMasterProfile, newProfile)
+					if err != nil {
+						return nil, err
+					}
+				}
+
+				// Update AppContext
+				for _, appCtx := range newMasterProfile.AppContext {
+					err := profileRepo.AddOrUpdateAppContext(newMasterProfile.PermaID, appCtx)
 					if err != nil {
 						log.Println("Failed to update AppContext for:", appCtx.AppID, "Error:", err)
 					}
 				}
-				profileRepo.AddOrUpdateUserIds(mergedProfile.PermaID, mergedProfile.UserIds)
 
-				if mergedProfile.Personality != nil {
-					err := profileRepo.AddOrUpdatePersonalityData(mergedProfile.PermaID, *mergedProfile.Personality)
+				// Update UserIds
+				profileRepo.AddOrUpdateUserIds(newMasterProfile.PermaID, newMasterProfile.UserIds)
+
+				// Update Personality
+				if newMasterProfile.Personality != nil {
+					err := profileRepo.AddOrUpdatePersonalityData(newMasterProfile.PermaID, *newMasterProfile.Personality)
 					if err != nil {
 						log.Println("Failed to update PersonalityData:", err)
 					}
 				}
-				profileRepo.AddOrUpdateIdentityData(mergedProfile.PermaID, *mergedProfile.Identity)
 
-				return &mergedProfile, nil
+				// Update Identity
+				if newMasterProfile.Identity != nil {
+					profileRepo.AddOrUpdateIdentityData(newMasterProfile.PermaID, *newMasterProfile.Identity)
+				}
+
+				return &newMasterProfile, nil
+
 			}
 		}
 	}
 
-	// 🔹 Step 4: No match found, create a new profile
-	_, err = profileRepo.InsertProfile(newProfile)
-	if err != nil {
-		//logger.LogMessage("ERROR", "Failed to save profile to MongoDB")
-		return nil, err
-	}
+	// No unification match found, return newProfile as-is
 	return &newProfile, nil
 }
 
@@ -108,15 +217,13 @@ func CreateOrUpdateProfile(input UserInput) (*models.Profile, error) {
 func doesProfileMatch(existingProfile models.Profile, newProfile models.Profile, rule models.UnificationRule) bool {
 	// Convert Profiles to JSON bytes (`[]byte`)
 	existingJSON, _ := json.Marshal(existingProfile)
-	log.Print(string(existingJSON))
+	//log.Print(string(existingJSON))
 	newJSON, _ := json.Marshal(newProfile)
 
 	// Iterate over all rule attributes
 	for _, attrRule := range rule.Rules {
 		existingValues := extractFieldFromJSON(existingJSON, attrRule.Attribute)
-		log.Print(existingValues)
 		newValues := extractFieldFromJSON(newJSON, attrRule.Attribute)
-		log.Print(newValues)
 		if checkForMatch(existingValues, newValues) {
 			return true // ✅ Match found
 		}
@@ -192,17 +299,31 @@ func GetProfile(permaID string) (*models.Profile, error) {
 	mongoDB := pkg.GetMongoDBInstance()
 	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
 
-	profile, err := profileRepo.FindProfileByID(permaID)
-	if err != nil {
-		//logger.LogMessage("ERROR", "Error retrieving profile for PermaID: "+permaID)
-		return nil, err
-	}
+	profile, _ := profileRepo.FindProfileByID(permaID)
 	if profile == nil {
-		//logger.LogMessage("INFO", "Profile not found for PermaID: "+permaID)
-		return nil, nil
+		return nil, errors.New("profile not found")
 	}
 
-	return profile, nil
+	if profile.ProfileHierarchy.IsMaster {
+		return profile, nil
+	} else {
+		// fetching merged master profile
+		masterProfile, err := profileRepo.FindProfileByID(profile.ProfileHierarchy.ParentProfileID)
+
+		// setting the current profile hierarchy to the master profile
+		//masterProfile.ProfileHierarchy = buildProfileHierarchy(profile, masterProfile)
+		masterProfile.ProfileHierarchy = profile.ProfileHierarchy
+		masterProfile.PermaID = profile.PermaID
+		if err != nil {
+			//logger.LogMessage("ERROR", "Error retrieving profile for PermaID: "+permaID)
+			return nil, err
+		}
+		if masterProfile == nil {
+			//logger.LogMessage("INFO", "Profile not found for PermaID: "+permaID)
+			return nil, nil
+		}
+		return masterProfile, nil
+	}
 }
 
 // DeleteProfile removes a profile from MongoDB by `perma_id`
@@ -212,7 +333,7 @@ func DeleteProfile(permaID string) (*models.Profile, error) {
 	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events") // assuming your event collection name is "events"
 
 	// 🔹 Fetch the existing profile before deletion
-	existingProfile, err := profileRepo.FindProfileByID(permaID)
+	profile, err := profileRepo.FindProfileByID(permaID)
 	if err != nil {
 		return nil, errors.New("profile not found")
 	}
@@ -223,13 +344,62 @@ func DeleteProfile(permaID string) (*models.Profile, error) {
 		log.Println("Failed to delete events for PermaID:", permaID)
 	}
 
-	// 🔹 Delete the profile
-	err = profileRepo.DeleteProfile(permaID)
-	if err != nil {
-		return nil, errors.New("failed to delete profile")
+	if profile.ProfileHierarchy.IsMaster && len(profile.ProfileHierarchy.ChildProfiles) == 0 {
+		// Delete the master with no children
+		err = profileRepo.DeleteProfile(permaID)
+		if err != nil {
+			return nil, errors.New("failed to delete profile")
+		}
 	}
 
-	return existingProfile, nil
+	if profile.ProfileHierarchy.IsMaster && len(profile.ProfileHierarchy.ChildProfiles) >= 0 {
+		//get all child profiles and delete
+		for _, childProfileID := range profile.ProfileHierarchy.ChildProfiles {
+			_, err := profileRepo.FindProfileByID(childProfileID)
+			if err != nil {
+				return nil, errors.New("failed to delete child profile")
+			}
+			err = profileRepo.DeleteProfile(childProfileID)
+			if err != nil {
+				return nil, errors.New("failed to delete child profile")
+			}
+		}
+		// now delete master
+		err = profileRepo.DeleteProfile(permaID)
+		if err != nil {
+			return nil, errors.New("failed to delete profile")
+		}
+	}
+
+	if !(profile.ProfileHierarchy.IsMaster) {
+		err = profileRepo.DeleteProfile(permaID)
+		for _, childProfileID := range profile.ProfileHierarchy.ChildProfiles {
+			if childProfileID != permaID {
+				profileRepo.DetachPeer(permaID, childProfileID)
+				profileRepo.DetachPeer(childProfileID, permaID)
+			}
+		}
+		profileRepo.DetachChildFromParent(profile.ProfileHierarchy.ParentProfileID, permaID)
+
+	}
+
+	return profile, nil
+}
+
+func waitForProfile(permaID string, maxRetries int, delay time.Duration) (*models.Profile, error) {
+	profileRepo := repositories.NewProfileRepository(pkg.GetMongoDBInstance().Database, "profiles")
+
+	for i := 0; i < maxRetries; i++ {
+		profile, err := profileRepo.FindProfileByID(permaID)
+		if err != nil {
+			return nil, err
+		}
+		if profile != nil {
+			return profile, nil
+		}
+		time.Sleep(delay)
+	}
+	return nil, nil
 }
 
 func GetAllProfiles() ([]models.Profile, error) {
@@ -292,7 +462,16 @@ func UpdatePersonalityData(permaID string, updates bson.M) error {
 func GetPersonalityProfileData(permaID string) (*models.PersonalityData, error) {
 	mongoDB := pkg.GetMongoDBInstance()
 	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
-	return profileRepo.GetPersonalityProfileData(permaID)
+
+	profile, _ := profileRepo.FindProfileByID(permaID)
+	if profile != nil {
+		if profile.ProfileHierarchy.IsMaster {
+			return profileRepo.GetPersonalityProfileData(permaID)
+		} else {
+			return profileRepo.GetPersonalityProfileData(profile.ProfileHierarchy.ParentProfileID)
+		}
+	}
+	return nil, errors.New("profile not found")
 }
 
 // sortRulesByPriority sorts unification rule attributes by priority (lowest first)

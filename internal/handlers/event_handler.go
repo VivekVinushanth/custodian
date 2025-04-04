@@ -3,16 +3,12 @@ package handlers
 import (
 	"custodian/internal/models"
 	"custodian/internal/service"
-	"encoding/json"
-	"net/http"
-	"strings"
-
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 // AddEvent handles adding a single event
 func AddEvent(c *gin.Context) {
-
 	var event models.Event
 
 	if err := c.ShouldBindJSON(&event); err != nil {
@@ -20,39 +16,7 @@ func AddEvent(c *gin.Context) {
 		return
 	}
 
-	switch strings.ToLower(event.EventType) {
-	case "track":
-		var trackEvent models.TrackEvent
-		propBytes, _ := json.Marshal(event.Properties)
-		if err := json.Unmarshal(propBytes, &trackEvent); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid track event properties"})
-			return
-		}
-		event.Properties = map[string]interface{}{"track_event": trackEvent}
-
-	case "page":
-		var pageEvent models.PageEvent
-		propBytes, _ := json.Marshal(event.Properties)
-		if err := json.Unmarshal(propBytes, &pageEvent); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page event properties"})
-			return
-		}
-		event.Properties = map[string]interface{}{"page_event": pageEvent}
-
-	case "identify":
-		var identifyEvent models.IdentifyEvent
-		propBytes, _ := json.Marshal(event.Properties)
-		if err := json.Unmarshal(propBytes, &identifyEvent); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid identify event properties"})
-			return
-		}
-		event.Properties = map[string]interface{}{"identify_event": identifyEvent}
-
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported event type"})
-		return
-	}
-
+	// 🧠 Let customers control the structure of `properties`, no need to convert
 	if err := service.AddEvent(event); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -70,42 +34,7 @@ func AddEvents(c *gin.Context) {
 		return
 	}
 
-	// Decode and structure each event's properties correctly
-	for i, event := range events {
-		switch strings.ToLower(event.EventType) {
-		case "track":
-			var trackEvent models.TrackEvent
-			propBytes, _ := json.Marshal(event.Properties)
-			if err := json.Unmarshal(propBytes, &trackEvent); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid track event properties"})
-				return
-			}
-			events[i].Properties = map[string]interface{}{"track_event": trackEvent}
-
-		case "page":
-			var pageEvent models.PageEvent
-			propBytes, _ := json.Marshal(event.Properties)
-			if err := json.Unmarshal(propBytes, &pageEvent); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page event properties"})
-				return
-			}
-			events[i].Properties = map[string]interface{}{"page_event": pageEvent}
-
-		case "identify":
-			var identifyEvent models.IdentifyEvent
-			propBytes, _ := json.Marshal(event.Properties)
-			if err := json.Unmarshal(propBytes, &identifyEvent); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid identify event properties"})
-				return
-			}
-			events[i].Properties = map[string]interface{}{"identify_event": identifyEvent}
-
-		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported event type in batch"})
-			return
-		}
-	}
-
+	// ✅ Do not alter or enforce structure — pass as-is to the service
 	if err := service.AddEvents(events); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -130,9 +59,6 @@ func GetUserEvent(c *gin.Context) {
 		return
 	}
 
-	// Re-decode properties based on type
-	service.DecodeEventProperties(event)
-
 	c.JSON(http.StatusOK, event)
 }
 
@@ -144,11 +70,6 @@ func GetUserEvents(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events"})
 		return
-	}
-
-	// Decode all event properties
-	for i := range events {
-		service.DecodeEventProperties(&events[i])
 	}
 
 	c.JSON(http.StatusOK, events)

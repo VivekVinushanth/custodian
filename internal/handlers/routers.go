@@ -9,21 +9,21 @@ func RegisterRoutes(router *gin.Engine) {
 		// Profile APIs
 		profile := base.Group("/profile")
 		{
-			profile.POST("/", CreateProfile)
+			//profile.POST("/", CreateProfile)
 			profile.GET("/", GetAllProfile)
 		}
 
 		base.GET("/:perma_id/profile", GetProfile)
 		base.DELETE("/:perma_id/profile", DeleteProfile)
 
-		// App Context APIs
-		appContext := base.Group("/:perma_id/profile")
-		{
-			appContext.PUT("/:app_id/app_context", AddOrUpdateAppContext)
-			appContext.PATCH("/:app_id/app_context", UpdateAppContextData)
-			appContext.GET("/:app_id/app_context", GetAppContextData)
-			appContext.GET("/app_context", GetListOfAppContextData)
-		}
+		//// App Context APIs
+		//appContext := base.Group("/:perma_id/profile")
+		//{
+		//	appContext.PUT("/:app_id/app_context", AddOrUpdateAppContext)
+		//	appContext.PATCH("/:app_id/app_context", UpdateAppContextData)
+		//	appContext.GET("/:app_id/app_context", GetAppContextData)
+		//	appContext.GET("/app_context", GetListOfAppContextData)
+		//}
 
 		// Personality Data APIs
 		personality := base.Group("/:perma_id/profile/personality")
@@ -58,6 +58,14 @@ func RegisterRoutes(router *gin.Engine) {
 			events.GET("/events", GetUserEvents)
 		}
 
+		//// Event Schema
+		//eventSceham := base.Group("/event_schema")
+		//{
+		//	events.POST("", AddEventSchema)
+		//
+		//	events.GET("/events", GetUserEvents)
+		//}
+
 		// Consent APIs (Newly Added)
 		consent := base.Group("/consents/:perma_id")
 		{
@@ -78,6 +86,15 @@ func RegisterRoutes(router *gin.Engine) {
 			unification.PUT("/:rule_name", UpdateUnificationRule)
 			unification.PATCH("/:rule_name", PatchUnificationRule)
 			unification.DELETE("/:rule_name", DeleteUnificationRule)
+		}
+
+		schema := base.Group("/profile/schema")
+		{
+			schema.POST("/", CreateSchemaRules)
+			schema.GET("/", GetSchemaRules)
+			//unification.PUT("/:rule_name", UpdateUnificationRule)
+			//unification.PATCH("/:rule_name", PatchUnificationRule)
+			schema.DELETE("/:rule_name", DeleteSchemaRule)
 		}
 
 	}

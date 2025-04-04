@@ -36,7 +36,8 @@ func main() {
 
 	// 🔹 Apply CORS middleware
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:3001"},
+		AllowOrigins: []string{"http://localhost:3000", "http://localhost:3001", "https://a8cb2cd1-0b15-4861-810c-d148b964d3a0.e1-us-east-azure.choreoapps.dev",
+			"https://7ae7a48f-409c-4152-b389-4e476be31258.e1-us-east-azure.choreoapps.dev"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -49,6 +50,8 @@ func main() {
 
 	// Initialize MongoDB
 	mongoDB := pkg.ConnectMongoDB(config.Mongodb.Uri, config.Mongodb.Database)
+
+	pkg.InitLocks(mongoDB.Database)
 
 	// Register routes
 	handlers.RegisterRoutes(router)

@@ -5,6 +5,8 @@ import (
 )
 
 type IdentityData struct {
+	UserId string `json:"userId,omitempty"`
+
 	Username string `json:"username,omitempty"`
 
 	Email string `json:"email,omitempty"`

@@ -13,11 +13,5 @@ type Event struct {
 	EventTimestamp time.Time              `json:"event_timestamp" bson:"event_timestamp"`
 	Locale         string                 `json:"locale,omitempty" bson:"locale,omitempty"`
 	Properties     map[string]interface{} `json:"properties,omitempty" bson:"properties,omitempty"`
-}
-
-// OneOfEventProperties represents multiple event types (PageEvent, TrackEvent, IdentifyEvent)
-type OneOfEventProperties struct {
-	PageEvent     *PageEvent     `json:"page_event,omitempty" bson:"page_event,omitempty"`
-	TrackEvent    *TrackEvent    `json:"track_event,omitempty" bson:"track_event,omitempty"`
-	IdentifyEvent *IdentifyEvent `json:"identify_event,omitempty" bson:"identify_event,omitempty"`
+	Context        map[string]interface{} `json:"context,omitempty" bson:"context,omitempty"`
 }
