@@ -97,6 +97,24 @@ func (repo *EventRepository) GetUserEvents(permaID string) ([]models.Event, erro
 	return events, nil
 }
 
+// GetUserEvents fetches all events for a user
+func (repo *EventRepository) FindEvents(filter bson.M) ([]models.Event, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cursor, err := repo.Collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var events []models.Event
+	if err := cursor.All(ctx, &events); err != nil {
+		return nil, err
+	}
+	return events, nil
+}
+
 func (repo *EventRepository) DeleteEvent(permaID, eventID string) error {
 	filter := bson.M{"perma_id": permaID, "event_id": eventID}
 	_, err := repo.Collection.DeleteOne(context.TODO(), filter)
@@ -112,4 +130,19 @@ func (repo *EventRepository) DeleteEventsByAppID(permaID, appID string) error {
 	filter := bson.M{"perma_id": permaID, "app_id": appID}
 	_, err := repo.Collection.DeleteMany(context.TODO(), filter)
 	return err
+}
+
+func (repo *EventRepository) FindEventsWithFilter(filter bson.M) ([]models.Event, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cursor, err := repo.Collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var events []models.Event
+	err = cursor.All(ctx, &events)
+	return events, err
 }

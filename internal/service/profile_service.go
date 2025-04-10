@@ -288,7 +288,7 @@ func GetProfile(permaID string) (*models.Profile, error) {
 
 	profile, _ := profileRepo.FindProfileByID(permaID)
 	if profile == nil {
-		return nil, errors.New("profile not found")
+		return nil, errors.New("profile not found12122")
 	}
 
 	if profile.ProfileHierarchy.IsParent {
@@ -345,8 +345,10 @@ func GetProfileWithToken(permaID string, token string) (*models.Profile, error) 
 	}
 	// Safely fetch userId from profile.Identity
 	userIDRaw, ok := profile.Identity["user_id"]
+	log.Println("user id raw ===", userIDRaw)
+	log.Println("uokkkk=", ok)
 	if !ok {
-		return nil, errors.New("user_id not found in profile.identity")
+		return profile, nil
 	}
 	log.Println("user id raw ===", userIDRaw)
 	userID, ok := userIDRaw.(string)
@@ -511,7 +513,7 @@ func AddOrUpdatePersonalityData(permaID string, personalityData map[string]inter
 func UpdatePersonalityData(permaID string, updates bson.M) error {
 	mongoDB := pkg.GetMongoDBInstance()
 	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
-	return profileRepo.UpdatePersonalityData(permaID, updates)
+	return profileRepo.UpsertPersonalityData(permaID, updates)
 }
 
 // GetPersonalityProfileData fetches personality data from a profile
@@ -602,6 +604,7 @@ func MergeProfileFields(existing, incoming models.Profile, traitRules []models.P
 			}
 		}
 
+		// todo: Note that merging with less info and then later profiel with max info leads to issue or rather without merge strat they are left out
 		// Perform merge based on strategy
 		mergedVal := MergeTraitValue(existingVal, newVal, rule.MergeStrategy, rule.ValueType)
 

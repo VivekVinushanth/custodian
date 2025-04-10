@@ -25,6 +25,7 @@ func RegisterRoutes(router *gin.Engine) {
 
 		base.POST("/event", AddEvent)
 		base.POST("/events", AddEvents)
+		base.GET("/app/:app_id/events", GetEvents)
 
 		// Events APIs
 		events := base.Group("/:perma_id")

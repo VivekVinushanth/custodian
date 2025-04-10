@@ -311,10 +311,10 @@ type GiveConsentToCollectJSONRequestBody = GiveConsentToCollectJSONBody
 // GiveConsentToShareJSONRequestBody defines body for GiveConsentToShare for application/json ContentType.
 type GiveConsentToShareJSONRequestBody = GiveConsentToShareJSONBody
 
-// AddPersonalityDataJSONRequestBody defines body for UpdatePersonalityData for application/json ContentType.
+// AddPersonalityDataJSONRequestBody defines body for UpsertPersonalityData for application/json ContentType.
 type AddPersonalityDataJSONRequestBody = PersonalityData
 
-// AddPersonalityDataJSONRequestBody defines body for UpdatePersonalityData for application/json ContentType.
+// AddPersonalityDataJSONRequestBody defines body for UpsertPersonalityData for application/json ContentType.
 type AddPersonalityDataJSONRequestBody = PersonalityData
 
 // AddAppContextDataJSONRequestBody defines body for AddAppContextData for application/json ContentType.

@@ -48,7 +48,10 @@ func AddEvent(event models.Event) error {
 	// Step 2: Store the event
 	mongoDB := pkg.GetMongoDBInstance()
 	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
+	event.EventType = strings.ToLower(event.EventType)
+	event.EventName = strings.ToLower(event.EventName)
 	if err := eventRepo.AddEvent(event); err != nil {
+
 		return fmt.Errorf("failed to store event: %v", err)
 	}
 
@@ -78,6 +81,13 @@ func GetUserEvents(permaID string) ([]models.Event, error) {
 	mongoDB := pkg.GetMongoDBInstance()
 	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
 	return eventRepo.GetUserEvents(permaID)
+}
+
+// GetEvents retrieves all events for a user
+func GetEvents(filter bson.M) ([]models.Event, error) {
+	mongoDB := pkg.GetMongoDBInstance()
+	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
+	return eventRepo.FindEvents(filter)
 }
 
 // DeleteEvent removes a single event by perma_id and event_id
@@ -148,7 +158,7 @@ func EnrichProfile(event models.Event) error {
 					permaId = profile.ProfileHierarchy.ParentProfileID
 				}
 				appContext := models.AppContext{
-					AppID:   event.AppID,
+					AppID:   event.AppId,
 					Devices: []models.AppContextDevices{device},
 				}
 				// 🔁 Update app_context
@@ -181,19 +191,39 @@ func EnrichProfile(event models.Event) error {
 			value = rule.Value
 		} else if rule.TraitType == "computed" {
 			// Basic "copy" computation
-			if rule.Computation == "copy" && rule.SourceField != "" {
-				value = GetFieldFromEvent(event, rule.SourceField)
-			} else if rule.Computation == "concat" {
-				// Concatenate two fields
-				// todo: if CONCAT - ensure to get two source field
-				if rule.SourceField != "" {
-					sourceField1 := GetFieldFromEvent(event, rule.SourceField)
-					sourceField2 := GetFieldFromEvent(event, rule.SourceField)
-					if sourceField1 != nil && sourceField2 != nil {
-						value = fmt.Sprintf("%v%v", sourceField1, sourceField2)
+			switch strings.ToLower(rule.Computation) {
+			case "copy":
+				if len(rule.SourceFields) != 1 {
+					log.Printf("Invalid SourceFields for 'copy' computation. Expected 1, got: %d", len(rule.SourceFields))
+					continue
+				}
+				value = GetFieldFromEvent(event, rule.SourceFields[0])
+				log.Printf("Copying value from event: =====v", value)
+			case "concat":
+				if rule.SourceFields != nil && len(rule.SourceFields) >= 2 {
+					var parts []string
+					for _, field := range rule.SourceFields {
+						fieldVal := GetFieldFromEvent(event, field)
+						if fieldVal != nil {
+							parts = append(parts, fmt.Sprintf("%v", fieldVal))
+						}
+					}
+					if len(parts) > 0 {
+						value = strings.Join(parts, "") // You can use a separator if needed
 					}
 				}
-			} else {
+			case "count":
+				// You'd call a service or repo to count events based on:
+				//   - eventType + eventName
+				//   - rule.Trigger.Conditions
+				//   - rule.TimeRange (e.g., 7d)
+				count, err := CountEventsMatchingRule(profile.PermaId, rule.Trigger, rule.TimeRange)
+				if err != nil {
+					log.Printf("Failed to compute count for rule %s: %v", rule.TraitId, err)
+					continue
+				}
+				value = count
+			default:
 				log.Printf("Unsupported computation: %s", rule.Computation)
 				continue
 			}
@@ -230,18 +260,31 @@ func EnrichProfile(event models.Event) error {
 		update := bson.M{fieldPath: value}
 		switch namespace {
 		case "personality":
-			err := profileRepo.UpdatePersonalityData(profile.PermaId, update)
+			err := profileRepo.UpsertPersonalityData(profile.PermaId, update)
 			if err != nil {
 				log.Println("Error updating personality data:", err)
 			}
 		case "identity":
-			//err = profileRepo.UpdateIdentityData(permaID, traitPath[1:], value, rule.MergeStrategy, rule.ValueType)
+			log.Println("Updating identity data:", update)
+			err := profileRepo.UpsertIdentityDataMethod(profile.PermaId, update)
+			if err != nil {
+				log.Println("Error updating identity data:", err)
+			}
 			continue
 		case "app_context":
 			continue
 			//err = profileRepo.AddOrUpdateAppContext(permaID, traitPath[1:], value, rule.MergeStrategy, rule.ValueType)
-		//case "session":
-		//	err = profileRepo.UpsertSessionTrait(permaID, traitPath[1:], value, rule.MergeStrategy, rule.ValueType)
+		case "session":
+			err := profileRepo.UpsertSessionData(profile.PermaId, update)
+			if err != nil {
+				log.Println("Error updating session data:", err)
+			}
+			continue
+		case "social":
+			err := profileRepo.UpsertSocialData(profile.PermaId, update)
+			if err != nil {
+				log.Println("Error updating session data:", err)
+			}
 		default:
 			log.Printf("Unsupported trait namespace: %s", namespace)
 			continue
@@ -273,12 +316,56 @@ func EnrichProfile(event models.Event) error {
 		if userID, ok := event.Properties["user_id"].(string); ok && userID != "" {
 			identityData["user_id"] = userID
 		}
+		if userID, ok := event.Properties["phone_number"].(string); ok && userID != "" {
+			identityData["phone_number"] = userID
+		}
 		if err := profileRepo.UpsertIdentityData(permaID, identityData); err != nil {
 			return fmt.Errorf("failed to enrich identity data: %v", err)
 		}
 	}
 
 	return nil
+}
+
+func CountEventsMatchingRule(permaID string, trigger models.RuleTrigger, timeRange string) (int, error) {
+	eventRepo := repositories.NewEventRepository(pkg.GetMongoDBInstance().Database, "events")
+
+	// Parse duration in minutes
+	durationInSec, err := strconv.Atoi(timeRange) // parse string to int
+	if err != nil {
+		log.Printf("Invalid time range format: %v", err)
+		//return
+	}
+
+	currentTime := time.Now().UTC().Unix()          // current time in seconds
+	startTime := currentTime - int64(durationInSec) // assuming value is in minutes
+
+	// Build MongoDB filter
+	filter := bson.M{
+		"perma_id":   permaID,
+		"event_type": strings.ToLower(trigger.EventType),
+		"event_name": strings.ToLower(trigger.EventName),
+		"event_timestamp": bson.M{
+			"$gte": startTime,
+		},
+	}
+
+	// Fetch matching events
+	events, err := eventRepo.FindEventsWithFilter(filter)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch events for counting: %v", err)
+	}
+
+	count := 0
+	for _, event := range events {
+		log.Print("do we have event", event)
+		if EvaluateConditions(event, trigger.Conditions) {
+			log.Println("are we here to seee?")
+			count++
+		}
+	}
+
+	return count, nil
 }
 
 func GetNestedTraitValue(profile models.Profile, traitPath string) interface{} {
@@ -297,6 +384,7 @@ func GetNestedTraitValue(profile models.Profile, traitPath string) interface{} {
 		data = profile.Session
 	case "app_context":
 		//data = profile.AppContext
+		// todo: need to fix this place
 		return nil
 	case "personality":
 		data = profile.Personality
@@ -319,13 +407,14 @@ func GetNestedTraitValue(profile models.Profile, traitPath string) interface{} {
 	return nil
 }
 
-func EvaluateConditions(event models.Event, conditions []models.RuleCondition) bool {
-	for _, cond := range conditions {
+func EvaluateConditions(event models.Event, triggerConditions []models.RuleCondition) bool {
+	for _, cond := range triggerConditions {
 		fieldVal := GetFieldFromEvent(event, cond.Field)
 		if !EvaluateCondition(fieldVal, cond.Operator, cond.Value) {
 			return false
 		}
 	}
+	log.Println("are we herewewe")
 	return true
 }
 func EvaluateCondition(actual interface{}, operator string, expected string) bool {

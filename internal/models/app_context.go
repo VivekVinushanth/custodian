@@ -1,7 +1,5 @@
 package models
 
-import "time"
-
 // AppContext represents contextual data for an application
 type AppContext struct {
 	AppID            string                      `json:"app_id" bson:"app_id" binding:"required"`
@@ -28,13 +26,13 @@ type AppContextUsageMetrics struct {
 
 // AppContextDevices represents user devices
 type AppContextDevices struct {
-	DeviceID       string    `json:"device_id,omitempty" bson:"device_id,omitempty"`
-	DeviceType     string    `json:"device_type,omitempty" bson:"device_type,omitempty"`
-	LastUsed       time.Time `json:"last_used,omitempty" bson:"last_used,omitempty"`
-	Os             string    `json:"os,omitempty" bson:"os,omitempty"`
-	Browser        string    `json:"browser,omitempty" bson:"browser,omitempty"`
-	BrowserVersion string    `json:"browser_version,omitempty" bson:"browser_version,omitempty"`
-	Ip             string    `json:"ip,omitempty" bson:"ip,omitempty"`
+	DeviceID       string `json:"device_id,omitempty" bson:"device_id,omitempty"`
+	DeviceType     string `json:"device_type,omitempty" bson:"device_type,omitempty"`
+	LastUsed       int    `json:"last_used,omitempty" bson:"last_used,omitempty"`
+	Os             string `json:"os,omitempty" bson:"os,omitempty"`
+	Browser        string `json:"browser,omitempty" bson:"browser,omitempty"`
+	BrowserVersion string `json:"browser_version,omitempty" bson:"browser_version,omitempty"`
+	Ip             string `json:"ip,omitempty" bson:"ip,omitempty"`
 }
 
 // AppContextRegionsAccessed stores region-based access

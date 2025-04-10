@@ -304,7 +304,7 @@ func (w *ServerInterfaceWrapper) GetPersonalityProfileData(ctx echo.Context) err
 	return err
 }
 
-// UpdatePersonalityData converts echo context to params.
+// UpsertPersonalityData converts echo context to params.
 func (w *ServerInterfaceWrapper) AddPersonalityData(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "perma_id" -------------
@@ -320,7 +320,7 @@ func (w *ServerInterfaceWrapper) AddPersonalityData(ctx echo.Context) error {
 	return err
 }
 
-// UpdatePersonalityData converts echo context to params.
+// UpsertPersonalityData converts echo context to params.
 func (w *ServerInterfaceWrapper) AddPersonalityData(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "perma_id" -------------

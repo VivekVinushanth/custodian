@@ -303,8 +303,8 @@ func (repo *ProfileRepository) UpsertIdentityData(permaID string, identityData m
 	return nil
 }
 
-// UpdatePersonalityData applies PATCH updates to specific fields of PersonalityData
-func (repo *ProfileRepository) UpdatePersonalityData(permaID string, updates bson.M) error {
+// UpsertPersonalityData applies PATCH updates to specific fields of PersonalityData
+func (repo *ProfileRepository) UpsertPersonalityData(permaID string, updates bson.M) error {
 	//logger := pkg.GetLogger()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -554,5 +554,61 @@ func (repo *ProfileRepository) AddChildProfile(parentProfile models.Profile, chi
 	if err != nil {
 		return fmt.Errorf("failed to add child profile to parent %s: %w", parentProfile.PermaId, err)
 	}
+	return nil
+}
+
+// UpsertSessionData applies PATCH updates to specific fields of PersonalityData
+func (repo *ProfileRepository) UpsertSessionData(permaID string, updates bson.M) error {
+	//logger := pkg.GetLogger()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"perma_id": permaID}
+	update := bson.M{"$set": updates}
+
+	_, err := repo.Collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		//logger.LogMessage("ERROR", "Failed to patch personality data: "+err.Error())
+		return err
+	}
+
+	//logger.LogMessage("INFO", "Personality data patched for user " + permaID)
+	return nil
+}
+
+// UpsertSocialData applies PATCH updates to specific fields of PersonalityData
+func (repo *ProfileRepository) UpsertSocialData(permaID string, updates bson.M) error {
+	//logger := pkg.GetLogger()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"perma_id": permaID}
+	update := bson.M{"$set": updates}
+
+	_, err := repo.Collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		//logger.LogMessage("ERROR", "Failed to patch personality data: "+err.Error())
+		return err
+	}
+
+	//logger.LogMessage("INFO", "Personality data patched for user " + permaID)
+	return nil
+}
+
+func (repo *ProfileRepository) UpsertIdentityDataMethod(id string, updates bson.M) interface{} {
+	//logger := pkg.GetLogger()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"perma_id": id}
+	update := bson.M{"$set": updates}
+
+	_, err := repo.Collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		//logger.LogMessage("ERROR", "Failed to patch personality data: "+err.Error())
+		return err
+	}
+
+	//logger.LogMessage("INFO", "Personality data patched for user " + permaID)
 	return nil
 }

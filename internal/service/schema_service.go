@@ -129,7 +129,7 @@ func AddProfileTrait(rule models.ProfileEnrichmentRule) error {
 		}, http.StatusBadRequest)
 	}
 
-	if rule.Computation == "copy" && rule.SourceField == "" {
+	if rule.Computation == "copy" && len(rule.SourceFields) != 1 {
 		return errors.NewClientError(errors.ErrorMessage{
 			Code:        "CDS-10004",
 			Message:     "Missing source field",
