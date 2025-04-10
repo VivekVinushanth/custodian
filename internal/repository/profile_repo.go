@@ -29,7 +29,7 @@ func (repo *ProfileRepository) InsertProfile(profile models.Profile) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	filter := bson.M{"perma_id": profile.PermaID}
+	filter := bson.M{"perma_id": profile.PermaId}
 	update := bson.M{"$setOnInsert": profile}
 
 	opts := options.Update().SetUpsert(true)
@@ -50,7 +50,7 @@ func (repo *ProfileRepository) UpdateProfile(profile models.Profile) (*mongo.Ins
 		//logger.LogMessage("ERROR", "Failed to insert profile: "+err.Error())
 		return nil, err
 	}
-	//logger.LogMessage("INFO", "Profile inserted with ID: "+result.InsertedID.(string))
+	//logger.LogMessage("INFO", "Profile inserted with TraitId: "+result.InsertedID.(string))
 	return result, nil
 }
 
@@ -64,14 +64,14 @@ func (repo *ProfileRepository) GetProfile(permaID string) (*models.Profile, erro
 	err := repo.Collection.FindOne(ctx, bson.M{"perma_id": permaID}).Decode(&profile)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			//logger.LogMessage("INFO", "Profile not found for PermaID: "+permaID)
+			//logger.LogMessage("INFO", "Profile not found for PermaId: "+permaID)
 			return nil, nil // Return `nil` instead of error
 		}
 		//logger.LogMessage("ERROR", "Error finding profile: "+err.Error())
 		return nil, err
 	}
 
-	//logger.LogMessage("INFO", "Profile retrieved for PermaID: "+permaID)
+	//logger.LogMessage("INFO", "Profile retrieved for PermaId: "+permaID)
 	return &profile, nil
 }
 
@@ -262,8 +262,7 @@ func (repo *ProfileRepository) GetListOfAppContext(permaID string) ([]models.App
 }
 
 // AddOrUpdatePersonalityData replaces (PUT) the personality data inside Profile
-func (repo *ProfileRepository) AddOrUpdatePersonalityData(permaID string, personalityData models.PersonalityData) error {
-	//logger := pkg.GetLogger()
+func (repo *ProfileRepository) AddOrUpdatePersonalityData(permaID string, personalityData map[string]interface{}) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -273,22 +272,25 @@ func (repo *ProfileRepository) AddOrUpdatePersonalityData(permaID string, person
 	opts := options.Update().SetUpsert(true) // Insert if not found
 	_, err := repo.Collection.UpdateOne(ctx, filter, update, opts)
 	if err != nil {
-		//logger.LogMessage("ERROR", "Failed to update personality data: "+err.Error())
 		return err
 	}
 
-	//logger.LogMessage("INFO", "Personality data updated for user "+permaID)
 	return nil
 }
 
-// AddOrUpdateIdentityData replaces (PUT) the personality data inside Profile
-func (repo *ProfileRepository) AddOrUpdateIdentityData(permaID string, personalityData models.IdentityData) error {
+// UpsertIdentityData replaces (PUT) the personality data inside Profile
+func (repo *ProfileRepository) UpsertIdentityData(permaID string, identityData map[string]interface{}) error {
 	//logger := pkg.GetLogger()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	filter := bson.M{"perma_id": permaID}
-	update := bson.M{"$set": bson.M{"identity": personalityData}}
+	updateFields := bson.M{}
+	for k, v := range identityData {
+		updateFields["identity."+k] = v
+	}
+
+	update := bson.M{"$set": updateFields}
 
 	opts := options.Update().SetUpsert(true) // Insert if not found
 	_, err := repo.Collection.UpdateOne(ctx, filter, update, opts)
@@ -359,23 +361,25 @@ func (repo *ProfileRepository) UpdateIdentityData(permaID string, updates bson.M
 	return err
 }
 
-// GetPersonalityProfileData retrieves the personality data from a user's profile
-func (repo *ProfileRepository) GetPersonalityProfileData(permaID string) (*models.PersonalityData, error) {
+func (repo *ProfileRepository) GetPersonalityProfileData(permaID string) (map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	filter := bson.M{"perma_id": permaID}
 	projection := bson.M{"personality": 1}
 
-	var profile models.Profile
-	err := repo.Collection.FindOne(ctx, filter, options.FindOne().SetProjection(projection)).Decode(&profile)
+	var result struct {
+		Personality map[string]interface{} `bson:"personality"`
+	}
+
+	err := repo.Collection.FindOne(ctx, filter, options.FindOne().SetProjection(projection)).Decode(&result)
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
 
-	return profile.Personality, nil
+	return result.Personality, nil
 }
 
 // GetAllProfiles retrieves all profiles from MongoDB
@@ -414,11 +418,11 @@ func (repo *ProfileRepository) GetAllMasterProfilesExceptForCurrent(currentProfi
 	defer cancel()
 
 	excludedIDs := []string{}
-	excludedIDs = append(excludedIDs, currentProfile.PermaID)
+	excludedIDs = append(excludedIDs, currentProfile.PermaId)
 
 	// Fetch only master profiles excluding the parent of the current profile
 	filter := bson.M{
-		"profile_hierarchy.is_master": true,
+		"profile_hierarchy.is_parent": true,
 		"perma_id": bson.M{
 			"$nin": excludedIDs,
 		},
@@ -473,12 +477,12 @@ func (repo *ProfileRepository) UpdateParent(master models.Profile, newProfile mo
 
 	updateProfile := bson.M{
 		"$set": bson.M{
-			"profile_hierarchy.parent_profile_id": master.PermaID,
-			"profile_hierarchy.is_master":         false,
+			"profile_hierarchy.parent_profile_id": master.PermaId,
+			"profile_hierarchy.is_parent":         false,
 		},
 	}
-	if _, err := repo.Collection.UpdateOne(ctx, bson.M{"perma_id": newProfile.PermaID}, updateProfile); err != nil {
-		return fmt.Errorf("failed to update profile %s: %w", newProfile.PermaID, err)
+	if _, err := repo.Collection.UpdateOne(ctx, bson.M{"perma_id": newProfile.PermaId}, updateProfile); err != nil {
+		return fmt.Errorf("failed to update profile %s: %w", newProfile.PermaId, err)
 	}
 
 	return nil
@@ -489,10 +493,10 @@ func (repo *ProfileRepository) LinkPeers(peerPermaId1 string, peerPermaId2 strin
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Add peer2 to peer1
-	peer2 := models.PeerProfile{
-		PeerProfileId: peerPermaId2,
-		RuleName:      ruleName,
+	// AddEventSchema peer2 to peer1
+	peer2 := models.ChildProfile{
+		ChildProfileId: peerPermaId2,
+		RuleName:       ruleName,
 	}
 	updateProfile1 := bson.M{
 		"$addToSet": bson.M{
@@ -503,10 +507,10 @@ func (repo *ProfileRepository) LinkPeers(peerPermaId1 string, peerPermaId2 strin
 		return fmt.Errorf("failed to update peer profile for %s: %w", peerPermaId1, err)
 	}
 
-	// Add peer1 to peer2
-	peer1 := models.PeerProfile{
-		PeerProfileId: peerPermaId1, // ✅ Corrected
-		RuleName:      ruleName,
+	// AddEventSchema peer1 to peer2
+	peer1 := models.ChildProfile{
+		ChildProfileId: peerPermaId1, // ✅ Corrected
+		RuleName:       ruleName,
 	}
 	updateProfile2 := bson.M{
 		"$addToSet": bson.M{
@@ -517,5 +521,38 @@ func (repo *ProfileRepository) LinkPeers(peerPermaId1 string, peerPermaId2 strin
 		return fmt.Errorf("failed to update peer profile for %s: %w", peerPermaId2, err)
 	}
 
+	return nil
+}
+
+func (repo *ProfileRepository) FindProfileByUserName(userID string) (*models.Profile, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var profile models.Profile
+	err := repo.Collection.FindOne(ctx, bson.M{"identity.user_name": userID}).Decode(&profile)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil // Profile not found is not an error
+		}
+		return nil, err
+	}
+	return &profile, nil
+}
+
+func (repo *ProfileRepository) AddChildProfile(parentProfile models.Profile, child models.ChildProfile) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"perma_id": parentProfile.PermaId}
+	update := bson.M{
+		"$addToSet": bson.M{
+			"profile_hierarchy.child_profile_ids": child,
+		},
+	}
+
+	_, err := repo.Collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return fmt.Errorf("failed to add child profile to parent %s: %w", parentProfile.PermaId, err)
+	}
 	return nil
 }

@@ -9,21 +9,11 @@ func RegisterRoutes(router *gin.Engine) {
 		// Profile APIs
 		profile := base.Group("/profile")
 		{
-			//profile.POST("/", CreateProfile)
 			profile.GET("/", GetAllProfile)
 		}
 
 		base.GET("/:perma_id/profile", GetProfile)
 		base.DELETE("/:perma_id/profile", DeleteProfile)
-
-		//// App Context APIs
-		//appContext := base.Group("/:perma_id/profile")
-		//{
-		//	appContext.PUT("/:app_id/app_context", AddOrUpdateAppContext)
-		//	appContext.PATCH("/:app_id/app_context", UpdateAppContextData)
-		//	appContext.GET("/:app_id/app_context", GetAppContextData)
-		//	appContext.GET("/app_context", GetListOfAppContextData)
-		//}
 
 		// Personality Data APIs
 		personality := base.Group("/:perma_id/profile/personality")
@@ -32,39 +22,28 @@ func RegisterRoutes(router *gin.Engine) {
 			personality.PATCH("/", UpdatePersonalityData)
 			personality.GET("/", GetPersonalityProfileData)
 		}
-		//
-		//schema := base.Group("/schema")
-		//{
-		//	schema.POST("/profile", AddProfileSchema)
-		//	schema.GET("/profile", GetProfileSchema)
-		//	schema.PUT("/profile", ReplaceProfileSchema)
-		//	schema.PATCH("/profile", PatchProfileSchema)
-		//	schema.DELETE("/profile", DeleteProfileSchema)
-		//}
 
-		// Alias APIs
-		//alias := base.Group("/:perma_id/alias")
-		//{
-		//	alias.POST("/", AliasUser)
-		//	alias.GET("/", GetAlias)
-		//}
+		base.POST("/event", AddEvent)
+		base.POST("/events", AddEvents)
 
 		// Events APIs
 		events := base.Group("/:perma_id")
 		{
-			events.POST("/event", AddEvent)
-			events.POST("/events", AddEvents)
 			events.GET("/events/:event_id", GetUserEvent)
 			events.GET("/events", GetUserEvents)
 		}
 
-		//// Event Schema
-		//eventSceham := base.Group("/event_schema")
-		//{
-		//	events.POST("", AddEventSchema)
-		//
-		//	events.GET("/events", GetUserEvents)
-		//}
+		// Event APIs
+
+		// Event Schema
+		eventSchema := base.Group("/event-schema")
+		{
+			eventSchema.POST("", AddEventSchema)
+			eventSchema.GET("/", GetEventSchemas)
+			eventSchema.GET("/{event_schema_id}", GetEventSchema)
+			eventSchema.PATCH("/{event_schema_id}", PatchEventSchema)
+			eventSchema.DELETE("/{event_schema_id}", DeleteEventSchema)
+		}
 
 		// Consent APIs (Newly Added)
 		consent := base.Group("/consents/:perma_id")
@@ -79,22 +58,22 @@ func RegisterRoutes(router *gin.Engine) {
 			consent.DELETE("/:app_id/:share", RevokeConsentToShare)
 		}
 
-		unification := base.Group("/unification_rules")
+		resolution := base.Group("/resolution-rules")
 		{
-			unification.POST("/", CreateUnificationRule)
-			unification.GET("/", GetUnificationRules)
-			unification.PUT("/:rule_name", UpdateUnificationRule)
-			unification.PATCH("/:rule_name", PatchUnificationRule)
-			unification.DELETE("/:rule_name", DeleteUnificationRule)
+			resolution.POST("/", AddResolutionRule)
+			resolution.GET("/", GetResolutionRules)
+			resolution.GET("/:rule_id", GetResolutionRule)
+			resolution.PATCH("/:rule_id", PatchResolutionRule)
+			resolution.DELETE("/:rule_id", DeleteResolutionRule)
 		}
 
-		schema := base.Group("/profile/schema")
+		traits := base.Group("/profile-traits")
 		{
-			schema.POST("/", CreateSchemaRules)
-			schema.GET("/", GetSchemaRules)
-			//unification.PUT("/:rule_name", UpdateUnificationRule)
-			//unification.PATCH("/:rule_name", PatchUnificationRule)
-			schema.DELETE("/:rule_name", DeleteSchemaRule)
+			traits.POST("", CreateTraits)
+			traits.GET("/", GetTraits)
+			traits.GET("/:trait_id", GetTrait)
+			traits.PUT("/:trait_id", PutTrait)
+			traits.DELETE("/:trait_id", DeleteTrait)
 		}
 
 	}

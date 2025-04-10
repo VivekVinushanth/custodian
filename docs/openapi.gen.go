@@ -74,13 +74,13 @@ type Consent struct {
 
 // Event defines model for Event.
 type Event struct {
-	// AppId Unique ID for the application
+	// AppId Unique TraitId for the application
 	AppId openapi_types.UUID `json:"app_id"`
 
 	// Context Device and session information
 	Context map[string]interface{} `json:"context"`
 
-	// EventId Unique ID for the event
+	// EventId Unique TraitId for the event
 	EventId openapi_types.UUID `json:"event_id"`
 
 	// EventName Name of the event
@@ -271,7 +271,7 @@ type GetProfileDataParams struct {
 	// IncludeAppContext Whether to include application context data
 	IncludeAppContext *bool `form:"includeAppContext,omitempty" json:"includeAppContext,omitempty"`
 
-	// AppId Application ID for fetching profile data with app context
+	// AppId Application TraitId for fetching profile data with app context
 	AppId *openapi_types.UUID `form:"app_id,omitempty" json:"app_id,omitempty"`
 }
 

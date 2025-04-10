@@ -35,7 +35,7 @@ func (repo *EventRepository) AddEvent(event models.Event) error {
 		return err
 	}
 
-	//logger.LogMessage("INFO", "Event inserted successfully for user "+event.PermaID)
+	//logger.LogMessage("INFO", "Event inserted successfully for user "+event.PermaId)
 	return nil
 }
 

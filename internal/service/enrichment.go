@@ -18,15 +18,16 @@ func StartEnrichmentWorker() {
 
 			// Step 1: Enrich
 			if err := EnrichProfile(event); err != nil {
-				log.Println("❌ Enrichment failed for:", event.PermaID, err)
+				log.Println("❌ Enrichment failed for:", event.PermaId, err)
 				continue
 			}
 
 			// Step 2: Unify
-			profile, err := profileRepo.FindProfileByID(event.PermaID)
+			profile, err := profileRepo.FindProfileByID(event.PermaId)
 			if err == nil && profile != nil {
+				log.Println("🔄 Unifying profile:", profile.PermaId)
 				if _, err := unifyProfiles(*profile); err != nil {
-					log.Println("❌ Unification failed for:", profile.PermaID, err)
+					log.Println("❌ Unification failed for:", profile.PermaId, err)
 				}
 			}
 		}

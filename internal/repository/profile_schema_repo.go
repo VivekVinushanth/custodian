@@ -5,6 +5,7 @@ import (
 	"custodian/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
 )
 
@@ -18,16 +19,16 @@ func NewProfileSchemaRepository(db *mongo.Database, collection string) *ProfileS
 	}
 }
 
-func (repo *ProfileSchemaRepository) AddSchemaRules(rules []models.ProfileEnrichmentRule) error {
+func (repo *ProfileSchemaRepository) UpsertTrait(rule models.ProfileEnrichmentRule) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var docs []interface{}
-	for _, rule := range rules {
-		docs = append(docs, rule)
-	}
+	filter := bson.M{"trait_id": rule.TraitId} // assuming trait_id is unique
+	update := bson.M{"$set": rule}
 
-	_, err := repo.Collection.InsertMany(ctx, docs)
+	opts := options.Update().SetUpsert(true)
+
+	_, err := repo.Collection.UpdateOne(ctx, filter, update, opts)
 	return err
 }
 
@@ -46,10 +47,25 @@ func (repo *ProfileSchemaRepository) GetSchemaRules() ([]models.ProfileEnrichmen
 	return rules, err
 }
 
+func (repo *ProfileSchemaRepository) GetSchemaRule(traitId string) (models.ProfileEnrichmentRule, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"profile_field": traitId}
+
+	var rule models.ProfileEnrichmentRule
+	err := repo.Collection.FindOne(ctx, filter).Decode(&rule)
+	if err != nil {
+		return models.ProfileEnrichmentRule{}, err
+	}
+
+	return rule, nil
+}
+
 func (repo *ProfileSchemaRepository) DeleteSchemaRule(attribute string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := repo.Collection.DeleteOne(ctx, bson.M{"attribute": attribute})
+	_, err := repo.Collection.DeleteOne(ctx, bson.M{"trait_id": attribute})
 	return err
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"net/http"
+	"strings"
 )
 
 func Index(c *gin.Context) {
@@ -16,7 +17,18 @@ func Index(c *gin.Context) {
 func GetProfile(c *gin.Context) {
 	permaID := c.Param("perma_id") // Extract `perma_id` from URL
 
-	profile, err := service.GetProfile(permaID)
+	// Optional: Extract token from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	var profile *models.Profile
+	var err error
+
+	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		profile, err = service.GetProfileWithToken(permaID, token)
+	} else {
+		profile, err = service.GetProfileWithToken(permaID, "")
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving profile"})
 		return
@@ -148,7 +160,7 @@ func GetListOfAppContextData(c *gin.Context) {
 func AddOrUpdatePersonalityData(c *gin.Context) {
 	permaID := c.Param("perma_id")
 
-	var personalityData models.PersonalityData
+	var personalityData map[string]interface{}
 	if err := c.ShouldBindJSON(&personalityData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
@@ -198,4 +210,69 @@ func GetPersonalityProfileData(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, personalityData)
+}
+
+// CreateTraits handles POST /unification_rules to create new profile enrichment rules
+func CreateTraits(c *gin.Context) {
+	var rules models.ProfileEnrichmentRule
+	if err := c.ShouldBindJSON(&rules); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input format"})
+		return
+	}
+
+	err := service.AddProfileTrait(rules)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save rules"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"message": "Rules saved successfully"})
+}
+
+// GetTraits handles GET /unification_rules to retrieve all rules
+func GetTraits(c *gin.Context) {
+	rules, err := service.GetProfileTraits()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve rules"})
+		return
+	}
+	c.JSON(http.StatusOK, rules)
+}
+
+func GetTrait(c *gin.Context) {
+	rules, err := service.GetProfileTraits()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve rules"})
+		return
+	}
+	c.JSON(http.StatusOK, rules)
+}
+
+func PutTrait(c *gin.Context) {
+	var rules models.ProfileEnrichmentRule
+	if err := c.ShouldBindJSON(&rules); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input format"})
+		return
+	}
+	err := service.AddProfileTrait(rules)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save rules"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"message": "Rules saved successfully"})
+}
+
+// DeleteTrait handles DELETE /unification_rules/:rule_name
+func DeleteTrait(c *gin.Context) {
+	ruleName := c.Param("trait_id")
+	if ruleName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "rule_name is required"})
+		return
+	}
+
+	err := service.DeleteProfileTrait(ruleName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete rule"})
+		return
+	}
+	c.JSON(http.StatusNoContent, nil)
 }

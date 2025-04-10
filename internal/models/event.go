@@ -5,7 +5,7 @@ import (
 )
 
 type Event struct {
-	PermaID        string                 `json:"perma_id" bson:"perma_id"`
+	PermaId        string                 `json:"perma_id" bson:"perma_id"`
 	EventType      string                 `json:"event_type" bson:"event_type"`
 	EventName      string                 `json:"event_name" bson:"event_name"`
 	EventID        string                 `json:"event_id" bson:"event_id"`

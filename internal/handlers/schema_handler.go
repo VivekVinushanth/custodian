@@ -1,51 +1,81 @@
 package handlers
 
 import (
+	"custodian/internal/errors"
 	"custodian/internal/models"
 	"custodian/internal/service"
-	"net/http"
-
+	"custodian/internal/utils"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"net/http"
 )
 
-// CreateSchemaRules handles POST /unification_rules to create new profile enrichment rules
-func CreateSchemaRules(c *gin.Context) {
-	var rules []models.ProfileEnrichmentRule
-	if err := c.ShouldBindJSON(&rules); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input format"})
-		return
-	}
+func AddEventSchema(c *gin.Context) {
+	var schema models.EventSchema
+	if err := c.ShouldBindJSON(&schema); err != nil {
+		badReq := errors.NewClientError(errors.ErrorMessage{
+			Code:        errors.ErrBadRequest.Code,
+			Message:     errors.ErrBadRequest.Message,
+			Description: err.Error(),
+		}, http.StatusBadRequest)
 
-	err := service.CreateSchemaRules(rules)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save rules"})
+		utils.HandleError(c, badReq)
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"message": "Rules saved successfully"})
+	err := service.AddEventSchema(schema)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, schema)
 }
 
-// GetSchemaRules handles GET /unification_rules to retrieve all rules
-func GetSchemaRules(c *gin.Context) {
-	rules, err := service.GetSchemaRules()
+func GetEventSchemas(c *gin.Context) {
+
+	schemas, err := service.GetEventSchemas()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve rules"})
+		utils.HandleError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, rules)
+	c.JSON(http.StatusOK, schemas)
 }
 
-// DeleteSchemaRule handles DELETE /unification_rules/:rule_name
-func DeleteSchemaRule(c *gin.Context) {
-	ruleName := c.Param("rule_name")
-	if ruleName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "rule_name is required"})
-		return
-	}
-
-	err := service.DeleteSchemaRule(ruleName)
+func GetEventSchema(c *gin.Context) {
+	id := c.Param("event_schema_id")
+	schema, err := service.GetEventSchema(id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete rule"})
+		utils.HandleError(c, err)
 		return
 	}
-	c.JSON(http.StatusNoContent, nil)
+	c.JSON(http.StatusOK, schema)
+}
+
+func PatchEventSchema(c *gin.Context) {
+	id := c.Param("event_schema_id")
+	var updates bson.M
+	if err := c.ShouldBindJSON(&updates); err != nil {
+		badReq := errors.NewClientError(errors.ErrorMessage{
+			Code:        errors.ErrBadRequest.Code,
+			Message:     errors.ErrBadRequest.Message,
+			Description: err.Error(),
+		}, http.StatusBadRequest)
+
+		utils.HandleError(c, badReq)
+		return
+	}
+	if err := service.PatchEventSchema(id, updates); err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	eventSchema, _ := service.GetEventSchema(id)
+	c.JSON(http.StatusOK, eventSchema)
+}
+
+func DeleteEventSchema(c *gin.Context) {
+	id := c.Param("event_schema_id")
+	if err := service.DeleteEventSchema(id); err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	c.JSON(http.StatusNoContent, "Event schema deleted successfully")
 }
