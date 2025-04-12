@@ -514,6 +514,12 @@ func toFloat(v interface{}) (float64, error) {
 func MergeTraitValue(existing interface{}, incoming interface{}, strategy string, valueType string) interface{} {
 	switch strings.ToLower(strategy) {
 	case "overwrite":
+		if incoming == nil {
+			return existing
+		}
+		if incoming == "" {
+			return existing
+		}
 		return incoming
 
 	case "ignore":
