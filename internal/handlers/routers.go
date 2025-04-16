@@ -34,8 +34,6 @@ func RegisterRoutes(router *gin.Engine) {
 			events.GET("/events", GetUserEvents)
 		}
 
-		// Event APIs
-
 		// Event Schema
 		eventSchema := base.Group("/event-schema")
 		{
