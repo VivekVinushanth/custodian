@@ -314,10 +314,10 @@ type GiveConsentToCollectJSONRequestBody = GiveConsentToCollectJSONBody
 // GiveConsentToShareJSONRequestBody defines body for GiveConsentToShare for application/json ContentType.
 type GiveConsentToShareJSONRequestBody = GiveConsentToShareJSONBody
 
-// AddPersonalityDataJSONRequestBody defines body for UpsertPersonalityData for application/json ContentType.
+// AddPersonalityDataJSONRequestBody defines body for UpsertTraits for application/json ContentType.
 type AddPersonalityDataJSONRequestBody = PersonalityData
 
-// AddPersonalityDataJSONRequestBody defines body for UpsertPersonalityData for application/json ContentType.
+// AddPersonalityDataJSONRequestBody defines body for UpsertTraits for application/json ContentType.
 type AddPersonalityDataJSONRequestBody = PersonalityData
 
 // AddAppContextDataJSONRequestBody defines body for AddAppContextData for application/json ContentType.
@@ -743,7 +743,7 @@ func (w *ServerInterfaceWrapper) GetPersonalityProfileData(ctx echo.Context) err
 	return err
 }
 
-// UpsertPersonalityData converts echo context to params.
+// UpsertTraits converts echo context to params.
 func (w *ServerInterfaceWrapper) AddPersonalityData(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "perma_id" -------------
@@ -759,7 +759,7 @@ func (w *ServerInterfaceWrapper) AddPersonalityData(ctx echo.Context) error {
 	return err
 }
 
-// UpsertPersonalityData converts echo context to params.
+// UpsertTraits converts echo context to params.
 func (w *ServerInterfaceWrapper) AddPersonalityData(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "perma_id" -------------

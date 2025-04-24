@@ -1,35 +1,24 @@
 package main
 
 import (
-	"custodian/internal/handlers"
-	"custodian/internal/logger"
-	"custodian/internal/pkg"
-	"custodian/internal/service"
-	"log"
+	"identity-customer-data-service/pkg/handlers"
+	"identity-customer-data-service/pkg/locks"
+	"identity-customer-data-service/pkg/logger"
+	"identity-customer-data-service/pkg/service"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 func main() {
 	// Specify the environment file and config file locations
-	envFile := "config/dev.env" // Change this to the specific .env file you want
-	configFile := "config/config.yaml"
+	//envFile := "config/dev.env" // Change this to the specific .env file you want
+	//configFile := "config/config.yaml"
 
 	// Initialize logger
-	if err := logger.Init(); err != nil {
-		log.Fatalf("Failed to initialize logger: %v", err)
-	}
-	defer logger.GetLogger().Sync()
 
-	// Load configuration with a specific `.env` file
-	config, err := pkg.LoadConfig(configFile, envFile)
-	if err != nil {
-		logger.GetLogger().Info("Failed to load config file.", zap.String("file", configFile), zap.Error(err))
-	}
-
+	logger.Init()
 	router := gin.Default()
 
 	// 🔹 Apply CORS middleware
@@ -43,12 +32,12 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	logger.GetLogger().Info("Customer Data Service Component has started.", zap.String("env", config.Env))
+	logger.Log.Info("Identity customer data service Component has started.")
 
 	// Initialize MongoDB
-	mongoDB := pkg.ConnectMongoDB(config.Mongodb.Uri, config.Mongodb.Database)
+	mongoDB := locks.ConnectMongoDB("mongodb+srv://sa:Q8n%23FUpTpTkpK4%25@cdscluster1.b3chj.mongodb.net/?retryWrites=true&w=majority&appName=cdsCluster1", "custodian_db")
 
-	pkg.InitLocks(mongoDB.Database)
+	locks.InitLocks(mongoDB.Database)
 
 	// Initialize Event queue
 	service.StartEnrichmentWorker()
