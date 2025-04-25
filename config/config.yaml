@@ -1,12 +1,13 @@
 env: "${ENV}" # This will be replaced by the ENV variable
 
 mongodb:
-  uri: "mongodb+srv://sa:Q8n%23FUpTpTkpK4%25@cdscluster1.b3chj.mongodb.net/?retryWrites=true&w=majority&appName=cdsCluster1"
+  uri: "${MONGODB_URI}"
   database: "custodian_db"
   profile_collection: "profiles"
   event_collection: "events"
   consent_collection: "consents"
 
-port:
-  http: 8080
+addr:
+  host: 0.0.0.0
+  port: 8900
 
