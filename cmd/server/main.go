@@ -1,26 +1,53 @@
 package main
 
 import (
+	"github.com/joho/godotenv"
 	"github.com/wso2/identity-customer-data-service/docs"
 	"github.com/wso2/identity-customer-data-service/pkg/handlers"
 	"github.com/wso2/identity-customer-data-service/pkg/locks"
 	"github.com/wso2/identity-customer-data-service/pkg/logger"
 	"github.com/wso2/identity-customer-data-service/pkg/service"
+	"gopkg.in/yaml.v2"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
+type Config struct {
+	MongoDB struct {
+		URI               string `yaml:"uri"`
+		Database          string `yaml:"database"`
+		ProfileCollection string `yaml:"profile_collection"`
+		EventCollection   string `yaml:"event_collection"`
+		ConsentCollection string `yaml:"consent_collection"`
+	} `yaml:"mongodb"`
+	Addr struct {
+		Port string `yaml:"port"`
+		Host string `yaml:"host"`
+	} `yaml:"addr"`
+}
+
 func main() {
-	// Specify the environment file and config file locations
-	//envFile := "config/dev.env" // Change this to the specific .env file you want
-	//configFile := "config/config.yaml"
+	const configFile = "config/config.yaml"
+
+	envFiles, err := filepath.Glob("config/*.env")
+	if err != nil || len(envFiles) == 0 {
+		log.Printf("No .env files found in the config folder: %v", err)
+	}
+	err = godotenv.Load(envFiles...)
+
+	// Load the configuration
+	config, err := LoadConfig(configFile)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 
 	// Initialize logger
-
 	logger.Init()
 	router := gin.Default()
 	server := handlers.NewServer()
@@ -39,7 +66,7 @@ func main() {
 	logger.Log.Info("Identity customer data service Component has started.")
 
 	// Initialize MongoDB
-	mongoDB := locks.ConnectMongoDB("mongodb+srv://sa:Q8n%23FUpTpTkpK4%25@cdscluster1.b3chj.mongodb.net/?retryWrites=true&w=majority&appName=cdsCluster1", "custodian_db")
+	mongoDB := locks.ConnectMongoDB(config.MongoDB.URI, config.MongoDB.Database)
 
 	locks.InitLocks(mongoDB.Database)
 
@@ -51,12 +78,28 @@ func main() {
 	docs.RegisterHandlers(api, server)
 	s := &http.Server{
 		Handler: router,
-		Addr:    "0.0.0.0:8900",
+		Addr:    config.Addr.Host + ":" + config.Addr.Port,
 	}
-
-	// And we serve HTTP until the world ends.
-	log.Fatal(s.ListenAndServe())
 
 	// Close MongoDB connection on exit
 	defer mongoDB.Client.Disconnect(nil)
+
+	// And we serve HTTP until the world ends.
+	log.Fatal(s.ListenAndServe())
+}
+
+func LoadConfig(filePath string) (*Config, error) {
+	file, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Replace placeholders with environment variables
+	expanded := os.ExpandEnv(string(file))
+
+	var config Config
+	if err := yaml.Unmarshal([]byte(expanded), &config); err != nil {
+		return nil, err
+	}
+	return &config, nil
 }
