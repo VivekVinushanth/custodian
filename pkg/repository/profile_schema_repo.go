@@ -2,10 +2,10 @@ package repositories
 
 import (
 	"context"
+	"github.com/wso2/identity-customer-data-service/pkg/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"identity-customer-data-service/pkg/models"
 	"time"
 )
 
@@ -19,11 +19,11 @@ func NewProfileSchemaRepository(db *mongo.Database, collection string) *ProfileS
 	}
 }
 
-func (repo *ProfileSchemaRepository) UpsertTrait(rule models.ProfileEnrichmentRule) error {
+func (repo *ProfileSchemaRepository) UpsertRule(rule models.ProfileEnrichmentRule) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	filter := bson.M{"trait_id": rule.TraitId} // assuming trait_id is unique
+	filter := bson.M{"rule_id": rule.RuleId} // assuming rule_id is unique
 	update := bson.M{"$set": rule}
 
 	opts := options.Update().SetUpsert(true)
@@ -66,6 +66,6 @@ func (repo *ProfileSchemaRepository) DeleteSchemaRule(attribute string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := repo.Collection.DeleteOne(ctx, bson.M{"trait_id": attribute})
+	_, err := repo.Collection.DeleteOne(ctx, bson.M{"rule_id": attribute})
 	return err
 }

@@ -1,18 +1,18 @@
 package service
 
 import (
+	"github.com/wso2/identity-customer-data-service/pkg/constants"
+	"github.com/wso2/identity-customer-data-service/pkg/errors"
+	"github.com/wso2/identity-customer-data-service/pkg/locks"
+	"github.com/wso2/identity-customer-data-service/pkg/models"
+	"github.com/wso2/identity-customer-data-service/pkg/repository"
 	"go.mongodb.org/mongo-driver/bson"
-	"identity-customer-data-service/pkg/constants"
-	"identity-customer-data-service/pkg/errors"
-	"identity-customer-data-service/pkg/locks"
-	"identity-customer-data-service/pkg/models"
-	"identity-customer-data-service/pkg/repository"
 	"net/http"
 	"time"
 )
 
-// AddResolutionRule Adds a new resolution rule.
-func AddResolutionRule(rule models.UnificationRule) error {
+// AddUnificationRule Adds a new resolution rule.
+func AddUnificationRule(rule models.UnificationRule) error {
 	mongoDB := locks.GetMongoDBInstance()
 	resolutionRepo := repositories.NewResolutionRuleRepository(mongoDB.Database, constants.ResolutionRulesCollection)
 	rule.CreatedAt = time.Now().UTC().Unix()
@@ -21,8 +21,8 @@ func AddResolutionRule(rule models.UnificationRule) error {
 	return resolutionRepo.AddResolutionRule(rule)
 }
 
-// GetResolutionRules Fetches all resolution rules.
-func GetResolutionRules() ([]models.UnificationRule, error) {
+// GetUnificationRules Fetches all resolution rules.
+func GetUnificationRules() ([]models.UnificationRule, error) {
 	mongoDB := locks.GetMongoDBInstance()
 	resolutionRepo := repositories.NewResolutionRuleRepository(mongoDB.Database, constants.ResolutionRulesCollection)
 	rules, err := resolutionRepo.GetResolutionRules()
@@ -38,8 +38,8 @@ func GetResolutionRules() ([]models.UnificationRule, error) {
 	return rules, err
 }
 
-// GetResolutionRule Fetches a specific resolution rule.
-func GetResolutionRule(ruleId string) (models.UnificationRule, error) {
+// GetUnificationRule Fetches a specific resolution rule.
+func GetUnificationRule(ruleId string) (models.UnificationRule, error) {
 	mongoDB := locks.GetMongoDBInstance()
 	resolutionRepo := repositories.NewResolutionRuleRepository(mongoDB.Database, constants.ResolutionRulesCollection)
 	rule, err := resolutionRepo.GetUnificationRule(ruleId)
@@ -76,8 +76,8 @@ func PatchResolutionRule(ruleId string, updates bson.M) error {
 	return resolutionRepo.PatchUnificationRule(ruleId, updates)
 }
 
-// DeleteResolutionRule Removes a  resolution rule.
-func DeleteResolutionRule(ruleId string) error {
+// DeleteUnificationRule Removes a  resolution rule.
+func DeleteUnificationRule(ruleId string) error {
 	mongoDB := locks.GetMongoDBInstance()
 	resolutionRepo := repositories.NewResolutionRuleRepository(mongoDB.Database, constants.ResolutionRulesCollection)
 	return resolutionRepo.DeleteUnificationRule(ruleId)

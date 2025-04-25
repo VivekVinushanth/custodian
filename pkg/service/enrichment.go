@@ -1,9 +1,9 @@
 package service
 
 import (
-	"identity-customer-data-service/pkg/locks"
-	"identity-customer-data-service/pkg/models"
-	repositories "identity-customer-data-service/pkg/repository"
+	"github.com/wso2/identity-customer-data-service/pkg/locks"
+	"github.com/wso2/identity-customer-data-service/pkg/models"
+	repositories "github.com/wso2/identity-customer-data-service/pkg/repository"
 	"log"
 )
 

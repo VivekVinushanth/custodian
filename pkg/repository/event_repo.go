@@ -2,8 +2,7 @@ package repositories
 
 import (
 	"context"
-	"identity-customer-data-service/pkg/models"
-	//"identity-customer-data-service/internal/pkg"
+	"github.com/wso2/identity-customer-data-service/pkg/models"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
