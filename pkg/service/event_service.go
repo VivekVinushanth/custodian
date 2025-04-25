@@ -2,20 +2,20 @@ package service
 
 import (
 	"fmt"
+	"github.com/wso2/identity-customer-data-service/pkg/constants"
+	"github.com/wso2/identity-customer-data-service/pkg/locks"
+	"github.com/wso2/identity-customer-data-service/pkg/models"
+	repositories "github.com/wso2/identity-customer-data-service/pkg/repository"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"identity-customer-data-service/pkg/constants"
-	"identity-customer-data-service/pkg/locks"
-	"identity-customer-data-service/pkg/models"
-	repositories "identity-customer-data-service/pkg/repository"
 	"log"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// AddEvent stores a single event in MongoDB
-func AddEvent(event models.Event) error {
+// AddEvents stores a single event in MongoDB
+func AddEvents(event models.Event) error {
 
 	if event.ProfileId == "" {
 		//if event.EventName == "login" || event.EventName == "sign_up" {
@@ -60,14 +60,6 @@ func AddEvent(event models.Event) error {
 	return nil
 }
 
-// AddEvents stores multiple events in MongoDB
-func AddEvents(events []models.Event) error {
-	mongoDB := locks.GetMongoDBInstance()
-	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
-	// todo: check if events are valid as per the schema
-	return eventRepo.AddEvents(events)
-}
-
 // GetUserEvent retrieves a single event
 func GetUserEvent(permaID, eventID string) (*models.Event, error) {
 	mongoDB := locks.GetMongoDBInstance()
@@ -87,27 +79,6 @@ func GetEvents(filter bson.M) ([]models.Event, error) {
 	mongoDB := locks.GetMongoDBInstance()
 	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
 	return eventRepo.FindEvents(filter)
-}
-
-// DeleteEvent removes a single event by perma_id and event_id
-func DeleteEvent(permaID, eventID string) error {
-	mongoDB := locks.GetMongoDBInstance()
-	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
-	return eventRepo.DeleteEvent(permaID, eventID)
-}
-
-// DeleteEventsByPermaID removes all events for a specific user (perma_id)
-//func DeleteEventsByPermaID(permaID string) error {
-//	mongoDB := locks.GetMongoDBInstance()
-//	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
-//	return eventRepo.DeleteEventsByPermaID(permaID)
-//}
-
-// DeleteEventsByAppID removes all events for a given app tied to a user
-func DeleteEventsByAppID(permaID, appID string) error {
-	mongoDB := locks.GetMongoDBInstance()
-	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
-	return eventRepo.DeleteEventsByAppID(permaID, appID)
 }
 
 // EnrichProfile updates interests list based on events
@@ -186,9 +157,9 @@ func EnrichProfile(event models.Event) error {
 
 		// Step 3: Get value to assign
 		var value interface{}
-		if rule.TraitType == "static" {
+		if rule.RuleType == "static" {
 			value = rule.Value
-		} else if rule.TraitType == "computed" {
+		} else if rule.RuleType == "computed" {
 			// Basic "copy" computation
 			switch strings.ToLower(rule.Computation) {
 			case "copy":
@@ -218,7 +189,7 @@ func EnrichProfile(event models.Event) error {
 				//   - rule.TimeRange (e.g., 7d)
 				count, err := CountEventsMatchingRule(profile.ProfileId, rule.Trigger, rule.TimeRange)
 				if err != nil {
-					log.Printf("Failed to compute count for rule %s: %v", rule.TraitId, err)
+					log.Printf("Failed to compute count for rule %s: %v", rule.RuleId, err)
 					continue
 				}
 				value = count

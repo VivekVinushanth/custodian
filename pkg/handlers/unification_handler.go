@@ -2,18 +2,18 @@ package handlers
 
 import (
 	"github.com/google/uuid"
+	"github.com/wso2/identity-customer-data-service/pkg/errors"
+	"github.com/wso2/identity-customer-data-service/pkg/models"
+	"github.com/wso2/identity-customer-data-service/pkg/service"
+	"github.com/wso2/identity-customer-data-service/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
-	"identity-customer-data-service/pkg/errors"
-	"identity-customer-data-service/pkg/models"
-	"identity-customer-data-service/pkg/service"
-	"identity-customer-data-service/pkg/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-// AddResolutionRule handles adding a new rule
-func AddResolutionRule(c *gin.Context) {
+// AddUnificationRule handles adding a new rule
+func (s Server) AddUnificationRule(c *gin.Context) {
 
 	var rule models.UnificationRule
 	if rule.RuleId == "" {
@@ -29,7 +29,7 @@ func AddResolutionRule(c *gin.Context) {
 		utils.HandleError(c, badReq)
 		return
 	}
-	err := service.AddResolutionRule(rule)
+	err := service.AddUnificationRule(rule)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -37,10 +37,10 @@ func AddResolutionRule(c *gin.Context) {
 	c.JSON(http.StatusCreated, rule) // Return the created rule in JSON format
 }
 
-// GetResolutionRules handles adding a new rule
-func GetResolutionRules(c *gin.Context) {
+// GetUnificationRules handles adding a new rule
+func (s Server) GetUnificationRules(c *gin.Context) {
 
-	rules, err := service.GetResolutionRules()
+	rules, err := service.GetUnificationRules()
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -48,11 +48,10 @@ func GetResolutionRules(c *gin.Context) {
 	c.JSON(http.StatusOK, rules)
 }
 
-// GetResolutionRule Fetches a specific resolution rule.
-func GetResolutionRule(c *gin.Context) {
+// GetUnificationRule Fetches a specific resolution rule.
+func (s Server) GetUnificationRule(c *gin.Context, ruleId string) {
 
-	ruleId := c.Param("rule_id")
-	rule, err := service.GetResolutionRule(ruleId)
+	rule, err := service.GetUnificationRule(ruleId)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -60,8 +59,8 @@ func GetResolutionRule(c *gin.Context) {
 	c.JSON(http.StatusOK, rule)
 }
 
-// PatchResolutionRule applies partial updates to a resolution rule.
-func PatchResolutionRule(c *gin.Context) {
+// PatchUnificationRule applies partial updates to a resolution rule.
+func PatchUnificationRule(c *gin.Context) {
 	ruleId := c.Param("rule_id")
 
 	var updates bson.M
@@ -81,15 +80,15 @@ func PatchResolutionRule(c *gin.Context) {
 		utils.HandleError(c, err)
 	}
 
-	rule, err := service.GetResolutionRule(ruleId)
+	rule, err := service.GetUnificationRule(ruleId)
 
 	c.JSON(http.StatusOK, rule)
 }
 
-// DeleteResolutionRule removes a resolution rule.
-func DeleteResolutionRule(c *gin.Context) {
-	ruleId := c.Param("rule_id")
-	err := service.DeleteResolutionRule(ruleId)
+// DeleteUnificationRule removes a resolution rule.
+func (s Server) DeleteUnificationRule(c *gin.Context, ruleId string) {
+
+	err := service.DeleteUnificationRule(ruleId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete unification rule"})
 		//logger.Log.Error("Error happened when updating resolution rule. " + err.Error())

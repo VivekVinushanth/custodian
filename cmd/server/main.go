@@ -1,10 +1,13 @@
 package main
 
 import (
-	"identity-customer-data-service/pkg/handlers"
-	"identity-customer-data-service/pkg/locks"
-	"identity-customer-data-service/pkg/logger"
-	"identity-customer-data-service/pkg/service"
+	"github.com/wso2/identity-customer-data-service/docs"
+	"github.com/wso2/identity-customer-data-service/pkg/handlers"
+	"github.com/wso2/identity-customer-data-service/pkg/locks"
+	"github.com/wso2/identity-customer-data-service/pkg/logger"
+	"github.com/wso2/identity-customer-data-service/pkg/service"
+	"log"
+	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -20,6 +23,7 @@ func main() {
 
 	logger.Init()
 	router := gin.Default()
+	server := handlers.NewServer()
 
 	// 🔹 Apply CORS middleware
 	router.Use(cors.New(cors.Config{
@@ -42,11 +46,16 @@ func main() {
 	// Initialize Event queue
 	service.StartEnrichmentWorker()
 
-	// Register routes
-	handlers.RegisterRoutes(router)
+	basePath := "/api/v1"
+	api := router.Group(basePath)
+	docs.RegisterHandlers(api, server)
+	s := &http.Server{
+		Handler: router,
+		Addr:    "0.0.0.0:8900",
+	}
 
-	// Start server
-	router.Run(":8900")
+	// And we serve HTTP until the world ends.
+	log.Fatal(s.ListenAndServe())
 
 	// Close MongoDB connection on exit
 	defer mongoDB.Client.Disconnect(nil)

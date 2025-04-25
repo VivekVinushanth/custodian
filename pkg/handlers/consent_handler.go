@@ -1,16 +1,16 @@
 package handlers
 
 import (
-	"identity-customer-data-service/pkg/service"
+	"github.com/wso2/identity-customer-data-service/docs"
+	"github.com/wso2/identity-customer-data-service/pkg/service"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-// GiveConsentToCollect handles consent requests for data collection
-func GiveConsentToCollect(c *gin.Context) {
-	permaID := c.Param("perma_id")
-	appID := c.Param("app_id")
+func (s Server) GiveConsent(c *gin.Context) {
+	permaID := c.Param("profile_id")
+	appID := c.Param("application_id")
 
 	err := service.GiveConsentToCollect(permaID, appID)
 	if err != nil {
@@ -33,6 +33,18 @@ func GiveConsentToShare(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Consent given for data collection"})
+}
+
+// GetUserConsents handles fetching consented apps
+func (s Server) GetUserConsents(c *gin.Context, profileId string) {
+	//TODO implement this properly
+	permaID := c.Param("profile_id")
+	consents, err := service.GetConsentedApps(permaID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch consents"})
+		return
+	}
+	c.JSON(http.StatusOK, consents)
 }
 
 // GetConsentedApps handles fetching consented apps
@@ -103,8 +115,8 @@ func RevokeConsentToShare(c *gin.Context) {
 }
 
 // RevokeAllConsents handles consent revocation
-func RevokeAllConsents(c *gin.Context) {
-	permaID := c.Param("perma_id")
+func (s Server) RevokeAllConsents(c *gin.Context, profileId string, params docs.RevokeAllConsentsParams) {
+	permaID := c.Param("profile_id")
 
 	err := service.RevokeAllConsents(permaID)
 	if err != nil {

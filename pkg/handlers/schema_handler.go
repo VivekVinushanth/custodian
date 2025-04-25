@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/wso2/identity-customer-data-service/pkg/errors"
+	"github.com/wso2/identity-customer-data-service/pkg/models"
+	"github.com/wso2/identity-customer-data-service/pkg/service"
+	"github.com/wso2/identity-customer-data-service/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
-	"identity-customer-data-service/pkg/errors"
-	"identity-customer-data-service/pkg/models"
-	"identity-customer-data-service/pkg/service"
-	"identity-customer-data-service/pkg/utils"
 	"net/http"
 )
 

@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/wso2/identity-customer-data-service/pkg/models"
+	"github.com/wso2/identity-customer-data-service/pkg/service"
 	"go.mongodb.org/mongo-driver/bson"
-	"identity-customer-data-service/pkg/models"
-	"identity-customer-data-service/pkg/service"
 	"log"
 	"net/http"
 	"strconv"
@@ -13,7 +13,7 @@ import (
 )
 
 // AddEvent handles adding a single event
-func AddEvent(c *gin.Context) {
+func (s Server) AddEvent(c *gin.Context) {
 	var event models.Event
 
 	if err := c.ShouldBindJSON(&event); err != nil {
@@ -21,7 +21,7 @@ func AddEvent(c *gin.Context) {
 		return
 	}
 
-	if err := service.AddEvent(event); err != nil {
+	if err := service.AddEvents(event); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -29,30 +29,10 @@ func AddEvent(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Event added successfully"})
 }
 
-// AddEvents handles adding multiple events
-func AddEvents(c *gin.Context) {
-	var events []models.Event
-
-	if err := c.ShouldBindJSON(&events); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	// ✅ Do not alter or enforce structure — pass as-is to the service
-	if err := service.AddEvents(events); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{"message": "Events added successfully"})
-}
-
 // GetUserEvent fetches a specific event
-func GetUserEvent(c *gin.Context) {
-	permaID := c.Param("perma_id")
-	eventID := c.Param("event_id")
+func (s Server) GetUserEvent(c *gin.Context, profileId string, eventId string) {
 
-	event, err := service.GetUserEvent(permaID, eventID)
+	event, err := service.GetUserEvent(profileId, eventId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve event"})
 		return
@@ -67,10 +47,9 @@ func GetUserEvent(c *gin.Context) {
 }
 
 // GetUserEvents fetches all events for a user
-func GetUserEvents(c *gin.Context) {
-	permaID := c.Param("perma_id")
+func (s Server) GetUserEvents(c *gin.Context, profileId string) {
 
-	events, err := service.GetUserEvents(permaID)
+	events, err := service.GetUserEvents(profileId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events"})
 		return
@@ -79,6 +58,31 @@ func GetUserEvents(c *gin.Context) {
 	c.JSON(http.StatusOK, events)
 }
 
+func (s Server) GetEventsByAppId(c *gin.Context, applicationId string) {
+
+	// TODO implement the method
+	events, err := service.GetUserEvents(applicationId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events"})
+		return
+	}
+
+	c.JSON(http.StatusOK, events)
+}
+
+func (s Server) GetIndividualEventByAppId(c *gin.Context, applicationId string, eventId string) {
+
+	//TODO implement the method
+	events, err := service.GetUserEvent(applicationId, eventId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events"})
+		return
+	}
+
+	c.JSON(http.StatusOK, events)
+}
+
+// TODO remove
 func GetEvents(c *gin.Context) {
 	// Optional filters
 	appId := c.Param("app_id")

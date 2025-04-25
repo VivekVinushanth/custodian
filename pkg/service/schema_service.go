@@ -3,13 +3,13 @@ package service
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/wso2/identity-customer-data-service/pkg/constants"
+	"github.com/wso2/identity-customer-data-service/pkg/errors"
+	"github.com/wso2/identity-customer-data-service/pkg/locks"
+	"github.com/wso2/identity-customer-data-service/pkg/models"
+	"github.com/wso2/identity-customer-data-service/pkg/repository"
+	"github.com/wso2/identity-customer-data-service/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
-	"identity-customer-data-service/pkg/constants"
-	"identity-customer-data-service/pkg/errors"
-	"identity-customer-data-service/pkg/locks"
-	"identity-customer-data-service/pkg/models"
-	"identity-customer-data-service/pkg/repository"
-	"identity-customer-data-service/pkg/utils"
 	"net/http"
 	"strings"
 	"time"
@@ -85,13 +85,14 @@ func DeleteEventSchema(id string) error {
 	return eventSchemaRepo.Delete(id)
 }
 
-func AddProfileTrait(rule models.ProfileEnrichmentRule) error {
+func AddEnrichmentRule(rule models.ProfileEnrichmentRule) error {
+	fmt.Printf("AddEnrichmentRule called with rule: %+v\n", rule)
 	mongoDB := locks.GetMongoDBInstance()
 	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
 
-	if rule.TraitId == "" {
+	if rule.RuleId == "" {
 		// if it is not existing, its new. If not its an update.
-		rule.TraitId = uuid.New().String()
+		rule.RuleId = uuid.New().String()
 	}
 	// 🔹 Required: Trait Name
 	if rule.TraitName == "" {
@@ -102,17 +103,17 @@ func AddProfileTrait(rule models.ProfileEnrichmentRule) error {
 		}, http.StatusBadRequest)
 	}
 
-	// 🔹 Required: Trait Type
-	if rule.TraitType != "static" && rule.TraitType != "computed" {
+	// 🔹 Required: Rule Type
+	if rule.RuleType != "static" && rule.RuleType != "computed" {
 		return errors.NewClientError(errors.ErrorMessage{
 			Code:        "CDS-10002",
-			Message:     "Invalid trait type.",
+			Message:     "Invalid rule type.",
 			Description: "Trait type must be either 'static' or 'computed'.",
 		}, http.StatusBadRequest)
 	}
 
 	// 🔹 Required for Static: Value
-	if rule.TraitType == "static" && rule.Value == "" {
+	if rule.RuleType == "static" && rule.Value == "" {
 		return errors.NewClientError(errors.ErrorMessage{
 			Code:        "CDS-10003",
 			Message:     "Missing static value.",
@@ -121,7 +122,7 @@ func AddProfileTrait(rule models.ProfileEnrichmentRule) error {
 	}
 
 	// 🔹 Required for Computed: Computation logic
-	if rule.TraitType == "computed" && rule.Computation == "" {
+	if rule.RuleType == "computed" && rule.Computation == "" {
 		return errors.NewClientError(errors.ErrorMessage{
 			Code:        "CDS-10004",
 			Message:     "Missing computation logic.",
@@ -194,23 +195,23 @@ func AddProfileTrait(rule models.ProfileEnrichmentRule) error {
 	rule.CreatedAt = time.Now().UTC().Unix()
 	rule.UpdatedAt = time.Now().UTC().Unix()
 
-	return schemaRepo.UpsertTrait(rule)
+	return schemaRepo.UpsertRule(rule)
 }
 
-func GetProfileTraits() ([]models.ProfileEnrichmentRule, error) {
+func GetEnrichmentRules() ([]models.ProfileEnrichmentRule, error) {
 	mongoDB := locks.GetMongoDBInstance()
 	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
 	return schemaRepo.GetSchemaRules()
 }
 
-func GetProfileTrait(traitId string) (models.ProfileEnrichmentRule, error) {
+func GetEnrichmentRule(traitId string) (models.ProfileEnrichmentRule, error) {
 	mongoDB := locks.GetMongoDBInstance()
 	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
 	return schemaRepo.GetSchemaRule(traitId)
 }
 
-func DeleteProfileTrait(ruleName string) error {
+func DeleteEnrichmentRule(ruleId string) error {
 	mongoDB := locks.GetMongoDBInstance()
 	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
-	return schemaRepo.DeleteSchemaRule(ruleName)
+	return schemaRepo.DeleteSchemaRule(ruleId)
 }

@@ -1,9 +1,9 @@
 package service
 
 import (
-	"identity-customer-data-service/pkg/locks"
-	"identity-customer-data-service/pkg/models"
-	"identity-customer-data-service/pkg/repository"
+	"github.com/wso2/identity-customer-data-service/pkg/locks"
+	"github.com/wso2/identity-customer-data-service/pkg/models"
+	"github.com/wso2/identity-customer-data-service/pkg/repository"
 )
 
 // GiveConsentToCollect grants consent to an app to collect data
