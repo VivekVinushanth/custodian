@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"github.com/wso2/identity-customer-data-service/docs"
 	"github.com/wso2/identity-customer-data-service/pkg/service"
 	"net/http"
 
@@ -115,10 +114,9 @@ func RevokeConsentToShare(c *gin.Context) {
 }
 
 // RevokeAllConsents handles consent revocation
-func (s Server) RevokeAllConsents(c *gin.Context, profileId string, params docs.RevokeAllConsentsParams) {
-	permaID := c.Param("profile_id")
+func (s Server) RevokeAllConsents(c *gin.Context, profileId string, params RevokeAllConsentsParams) {
 
-	err := service.RevokeAllConsents(permaID)
+	err := service.RevokeAllConsents(profileId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke consent"})
 		return

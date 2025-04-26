@@ -505,7 +505,7 @@ components:
           type: string
         description:
           type: string
-        trait_type:
+        rule_type:
           type: string
           enum: [static, computed]
         value:
