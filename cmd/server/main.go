@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/joho/godotenv"
-	"github.com/wso2/identity-customer-data-service/docs"
 	"github.com/wso2/identity-customer-data-service/pkg/handlers"
 	"github.com/wso2/identity-customer-data-service/pkg/locks"
 	"github.com/wso2/identity-customer-data-service/pkg/logger"
@@ -75,7 +74,7 @@ func main() {
 
 	basePath := "/api/v1"
 	api := router.Group(basePath)
-	docs.RegisterHandlers(api, server)
+	handlers.RegisterHandlers(api, server)
 	s := &http.Server{
 		Handler: router,
 		Addr:    config.Addr.Host + ":" + config.Addr.Port,
