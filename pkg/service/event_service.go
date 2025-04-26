@@ -75,10 +75,10 @@ func GetUserEvents(permaID string) ([]models.Event, error) {
 }
 
 // GetEvents retrieves all events for a user
-func GetEvents(filter bson.M) ([]models.Event, error) {
+func GetEvents(filters []string, timeFilter bson.M) ([]models.Event, error) {
 	mongoDB := locks.GetMongoDBInstance()
 	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
-	return eventRepo.FindEvents(filter)
+	return eventRepo.FindEvents(filters, timeFilter)
 }
 
 // EnrichProfile updates interests list based on events

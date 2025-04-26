@@ -2,10 +2,12 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"github.com/wso2/identity-customer-data-service/pkg/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"strings"
 	"time"
 )
 
@@ -45,6 +47,48 @@ func (repo *ProfileSchemaRepository) GetSchemaRules() ([]models.ProfileEnrichmen
 	var rules []models.ProfileEnrichmentRule
 	err = cursor.All(ctx, &rules)
 	return rules, err
+}
+
+func (repo *ProfileSchemaRepository) GetEnrichmentRulesByFilter(filters []string) ([]models.ProfileEnrichmentRule, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	mongoFilter := bson.M{}
+
+	for _, f := range filters {
+		tokens := strings.SplitN(f, " ", 3)
+		if len(tokens) != 3 {
+			return nil, fmt.Errorf("invalid filter format: %s", f)
+		}
+
+		field := tokens[0]
+		operator := strings.ToLower(tokens[1])
+		value := strings.TrimSpace(tokens[2])
+
+		switch operator {
+		case "sw": // starts with
+			mongoFilter[field] = bson.M{"$regex": fmt.Sprintf("^%s", value)}
+		case "co": // contains
+			mongoFilter[field] = bson.M{"$regex": value}
+		case "eq":
+			mongoFilter[field] = value
+		default:
+			return nil, fmt.Errorf("unsupported operator: %s", operator)
+		}
+	}
+
+	cursor, err := repo.Collection.Find(ctx, mongoFilter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var rules []models.ProfileEnrichmentRule
+	if err := cursor.All(ctx, &rules); err != nil {
+		return nil, err
+	}
+
+	return rules, nil
 }
 
 func (repo *ProfileSchemaRepository) GetSchemaRule(traitId string) (models.ProfileEnrichmentRule, error) {

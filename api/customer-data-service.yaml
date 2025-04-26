@@ -87,17 +87,10 @@ paths:
       responses:
         '201':
           description: Event created successfully
-  /app/{application_id}/events:
     get:
       tags: [Events]
-      summary: Get events by application ID
-      operationId: getEventsByAppId
-      parameters:
-        - name: application_id
-          in: path
-          required: true
-          schema:
-            type: string
+      summary: Get events
+      operationId: getEvents
       responses:
         '200':
           description: Events retrieved successfully
@@ -108,64 +101,12 @@ paths:
                 items:
                   $ref: '#/components/schemas/Event'
 
-  /app/{application_id}/events/{event_id}:
+  /events/{event_id}:
     get:
       tags: [Events]
-      summary: Get events by application ID
-      operationId: getIndividualEventByAppId
+      summary: Get a specific event
+      operationId: getEvent
       parameters:
-        - name: application_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: event_id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Events retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Event'
-
-  /{profile_id}/events:
-    get:
-      tags: [Events]
-      summary: Get events for a specific user profile
-      operationId: getUserEvents
-      parameters:
-        - name: profile_id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: User events retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Event'
-
-  /{profile_id}/events/{event_id}:
-    get:
-      tags: [Events]
-      summary: Get a specific event for a user profile
-      operationId: getUserEvent
-      parameters:
-        - name: profile_id
-          in: path
-          required: true
-          schema:
-            type: string
         - name: event_id
           in: path
           required: true
@@ -178,6 +119,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Event'
+
   /unification-rules:
     post:
       tags: [Profile Unification]

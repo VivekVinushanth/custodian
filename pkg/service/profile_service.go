@@ -14,6 +14,7 @@ import (
 	"log"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -470,6 +471,84 @@ func GetAllProfiles() ([]models.Profile, error) {
 	}
 
 	return existingProfiles, nil
+}
+
+//func GetAllProfilesWithFilter(filters []string) ([]models.Profile, error) {
+//
+//	mongoDB := locks.GetMongoDBInstance()
+//	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
+//	existingProfiles, err := profileRepo.GetAllProfilesWithFilter(filters)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return existingProfiles, nil
+//}
+
+func GetAllProfilesWithFilter(filters []string) ([]models.Profile, error) {
+	mongoDB := locks.GetMongoDBInstance()
+	profileRepo := repositories.NewProfileRepository(mongoDB.Database, constants.ProfileCollection)
+
+	// Step 1: Fetch trait enrichment rules (for type info)
+	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, constants.ProfileSchemaCollection)
+	rules, err := schemaRepo.GetSchemaRules()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch schema rules: %v", err)
+	}
+
+	// Step 2: Build trait → valueType mapping
+	traitTypeMap := make(map[string]string)
+	for _, rule := range rules {
+		traitTypeMap[rule.TraitName] = rule.ValueType
+		log.Println("trait tyoe====", rule.TraitName, rule.ValueType)
+	}
+
+	// Step 3: Rewrite filters with correct parsed types
+	var updatedFilters []string
+	for _, f := range filters {
+		parts := strings.SplitN(f, " ", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		field, operator, rawValue := parts[0], parts[1], parts[2]
+		valueType := traitTypeMap[field]
+		parsed := parseTypedValue(valueType, rawValue)
+
+		// Prepare updated filter string
+		var valueStr string
+		switch v := parsed.(type) {
+		case string:
+			valueStr = v
+		default:
+			valueStr = fmt.Sprintf("%v", v)
+		}
+		updatedFilters = append(updatedFilters, fmt.Sprintf("%s %s %s", field, operator, valueStr))
+	}
+
+	// Step 4: Pass updated filters to repo
+	existingProfiles, err := profileRepo.GetAllProfilesWithFilter(updatedFilters)
+	if err != nil {
+		return nil, err
+	}
+	return existingProfiles, nil
+}
+
+func parseTypedValue(valueType string, raw string) interface{} {
+	switch valueType {
+	case "int":
+		log.Println("are wewewerwrerere=")
+		i, _ := strconv.Atoi(raw)
+		log.Println(i)
+		return i
+	case "float", "double":
+		f, _ := strconv.ParseFloat(raw, 64)
+		return f
+	case "boolean":
+		return raw == "true"
+	case "string":
+		return raw
+	default:
+		return raw
+	}
 }
 
 // AddOrUpdateAppContext replaces (PUT) or inserts a new AppContext inside Profile

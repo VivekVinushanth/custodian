@@ -8,6 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -448,6 +449,63 @@ func (repo *ProfileRepository) GetAllProfiles() ([]models.Profile, error) {
 
 	//logger.LogMessage("INFO", "Successfully fetched profiles")
 	return profiles, nil
+}
+
+func (repo *ProfileRepository) GetAllProfilesWithMongoFilter(filter bson.M) ([]models.Profile, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cursor, err := repo.Collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var profiles []models.Profile
+	if err := cursor.All(ctx, &profiles); err != nil {
+		return nil, err
+	}
+	return profiles, nil
+}
+
+func (repo *ProfileRepository) GetAllProfilesWithFilter(filters []string) ([]models.Profile, error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	filter := bson.M{}
+	for _, f := range filters {
+		parts := strings.SplitN(f, " ", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		field, operator, value := parts[0], strings.ToLower(parts[1]), parts[2]
+
+		switch operator {
+		case "eq":
+			filter[field] = value
+		case "sw":
+			filter[field] = bson.M{"$regex": fmt.Sprintf("^%s", value)}
+		case "co":
+			filter[field] = bson.M{"$regex": value}
+		}
+	}
+
+	for k, v := range filter {
+		log.Print("Filterrerere: ", k, " = ", v)
+	}
+
+	cursor, err := repo.Collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var profile []models.Profile
+	if err := cursor.All(ctx, &profile); err != nil {
+		return nil, err
+	}
+	return profile, nil
 }
 
 // GetAllMasterProfilesExceptForCurrent retrieves all master profiles excluding the current profile's parent

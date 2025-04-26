@@ -204,6 +204,12 @@ func GetEnrichmentRules() ([]models.ProfileEnrichmentRule, error) {
 	return schemaRepo.GetSchemaRules()
 }
 
+func GetEnrichmentRulesByFilter(filters []string) ([]models.ProfileEnrichmentRule, error) {
+	mongoDB := locks.GetMongoDBInstance()
+	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
+	return schemaRepo.GetEnrichmentRulesByFilter(filters)
+}
+
 func GetEnrichmentRule(traitId string) (models.ProfileEnrichmentRule, error) {
 	mongoDB := locks.GetMongoDBInstance()
 	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
