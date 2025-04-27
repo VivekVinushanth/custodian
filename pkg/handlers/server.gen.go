@@ -237,6 +237,9 @@ type ServerInterface interface {
 	// Add a single event
 	// (POST /events)
 	AddEvent(c *gin.Context)
+	// Get write key
+	// (POST /events/write-key/{application_id})
+	GetWriteKey(c *gin.Context, applicationId string)
 	// Get a specific event
 	// (GET /events/{event_id})
 	GetEvent(c *gin.Context, eventId string)
@@ -479,6 +482,30 @@ func (siw *ServerInterfaceWrapper) AddEvent(c *gin.Context) {
 	siw.Handler.AddEvent(c)
 }
 
+// GetWriteKey operation middleware
+func (siw *ServerInterfaceWrapper) GetWriteKey(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "application_id" -------------
+	var applicationId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "application_id", c.Param("application_id"), &applicationId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter application_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetWriteKey(c, applicationId)
+}
+
 // GetEvent operation middleware
 func (siw *ServerInterfaceWrapper) GetEvent(c *gin.Context) {
 
@@ -699,6 +726,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PUT(options.BaseURL+"/enrichment-rules/:rule_id", wrapper.PutEnrichmentRule)
 	router.GET(options.BaseURL+"/events", wrapper.GetEvents)
 	router.POST(options.BaseURL+"/events", wrapper.AddEvent)
+	router.GET(options.BaseURL+"/events/write-key/:application_id", wrapper.GetWriteKey)
 	router.GET(options.BaseURL+"/events/:event_id", wrapper.GetEvent)
 	router.GET(options.BaseURL+"/profiles", wrapper.GetAllProfiles)
 	router.DELETE(options.BaseURL+"/profiles/:profile_id", wrapper.DeleteProfile)

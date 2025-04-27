@@ -78,6 +78,8 @@ paths:
       tags: [Events]
       summary: Add a single event
       operationId: addEvent
+      security:
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -101,6 +103,24 @@ paths:
                 items:
                   $ref: '#/components/schemas/Event'
 
+  /events/write-key/{application_id}:
+    get:
+        tags: [Events]
+        summary: Get write key
+        operationId: getWriteKey
+        parameters:
+          - name: application_id
+            in: path
+            required: true
+            schema:
+              type: string
+        responses:
+            '200':
+              description: Write key retrieved successfully
+              content:
+                  application/json:
+                    schema:
+                      type: string
   /events/{event_id}:
     get:
       tags: [Events]
@@ -595,3 +615,8 @@ components:
         user_agent:
           type: string
           example: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+#        bearerFormat: JWT  # ⚠️ Optional. You can even remove this if you allow both JWT & opaque.
