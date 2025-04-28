@@ -18,21 +18,7 @@ import (
 func AddEvents(event models.Event) error {
 
 	if event.ProfileId == "" {
-		//if event.EventName == "login" || event.EventName == "sign_up" {
-		//	log.Println("props:::::", event.Properties)
-		//	userId := event.Properties["user_name"].(string)
-		//	log.Println("user_id:===", userId)
-		//	profile, _ := waitForProfileWithUserName(event.PermaId, 10, 100*time.Millisecond)
-		//	if profile != nil {
-		//		event.PermaId = profile.PermaId
-		//	} else {
-		//		// todo: should we create profile or not?. temporarily creating profile
-		//		if event.EventName != "sign_up" {
-		//			event.PermaId = uuid.NewString()
-		//			log.Printf("Creating new profile with perma_id: %s", event.PermaId)
-		//		}
-		//	}
-		//}
+
 		return fmt.Errorf("perma_id not found")
 	}
 
@@ -60,25 +46,17 @@ func AddEvents(event models.Event) error {
 	return nil
 }
 
-// GetUserEvent retrieves a single event
-func GetUserEvent(permaID, eventID string) (*models.Event, error) {
-	mongoDB := locks.GetMongoDBInstance()
-	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
-	return eventRepo.GetUserEvent(permaID, eventID)
-}
-
-// GetUserEvents retrieves all events for a user
-func GetUserEvents(permaID string) ([]models.Event, error) {
-	mongoDB := locks.GetMongoDBInstance()
-	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
-	return eventRepo.GetUserEvents(permaID)
-}
-
-// GetEvents retrieves all events for a user
+// GetEvents retrieves all events
 func GetEvents(filters []string, timeFilter bson.M) ([]models.Event, error) {
 	mongoDB := locks.GetMongoDBInstance()
 	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
 	return eventRepo.FindEvents(filters, timeFilter)
+}
+
+func GetEvent(eventId string) (*models.Event, error) {
+	mongoDB := locks.GetMongoDBInstance()
+	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
+	return eventRepo.FindEvent(eventId)
 }
 
 // EnrichProfile updates interests list based on events

@@ -32,7 +32,7 @@ func (repo *ResolutionRuleRepository) AddResolutionRule(rule models.UnificationR
 		return errors.NewServerError(errors.ErrWhileCreatingResolutionRules, err)
 	}
 
-	logger.Log.Info("Unification rule created successfully: " + rule.RuleName)
+	logger.Info("Unification rule created successfully: " + rule.RuleName)
 	return nil
 }
 
@@ -43,23 +43,21 @@ func (repo *ResolutionRuleRepository) GetResolutionRules() ([]models.Unification
 	defer cancel()
 	cursor, err := repo.Collection.Find(ctx, bson.M{})
 	if err != nil {
-		logger.Log.Info("Error occurred while fetching resolution rules.")
+		logger.Info("Error occurred while fetching resolution rules.")
 		return nil, errors.NewServerError(errors.ErrWhileFetchingResolutionRules, err)
 	}
 	defer func(cursor *mongo.Cursor, ctx context.Context) {
 		err := cursor.Close(ctx)
-		// should be debug
 		if err != nil {
-			logger.Log.Info("Error occurred while closing cursor.")
+			logger.Debug("Error occurred while closing cursor.", err)
 		}
 	}(cursor, ctx)
 	var rules []models.UnificationRule
 	if err = cursor.All(ctx, &rules); err != nil {
-		// should be debug
-		logger.Log.Info("Error occurred while decoding resolution rules.")
+		logger.Debug("Error occurred while decoding resolution rules.", err)
 		return nil, errors.NewServerError(errors.ErrWhileFetchingResolutionRules, err)
 	}
-	logger.Log.Info("Successfully fetched resolution rules")
+	logger.Info("Successfully fetched resolution rules")
 	return rules, nil
 }
 
@@ -73,12 +71,11 @@ func (repo *ResolutionRuleRepository) GetUnificationRule(ruleId string) (models.
 
 	err := repo.Collection.FindOne(ctx, filter).Decode(&rule)
 	if err != nil {
-		// should be debug
-		logger.Log.Info("Error occurred while fetching resolution rule with rule_id: " + ruleId)
+		logger.Debug("Error occurred while fetching resolution rule with rule_id: "+ruleId, err)
 		return rule, errors.NewServerError(errors.ErrWhileFetchingResolutionRule, err)
 	}
 
-	logger.Log.Info("Successfully fetched resolution rule for rule_id: " + ruleId)
+	logger.Info("Successfully fetched resolution rule for rule_id: " + ruleId)
 	return rule, nil
 }
 
@@ -96,7 +93,7 @@ func (repo *ResolutionRuleRepository) PatchUnificationRule(ruleId string, update
 	if err != nil {
 		return errors.NewServerError(errors.ErrWhileUpdatingResolutionRule, err)
 	}
-	logger.Log.Info("Successfully updated resolution rule for rule_id: " + ruleId)
+	logger.Info("Successfully updated resolution rule for rule_id: " + ruleId)
 	return nil
 }
 
@@ -108,9 +105,9 @@ func (repo *ResolutionRuleRepository) DeleteUnificationRule(ruleId string) error
 	filter := bson.M{"rule_id": ruleId}
 	_, err := repo.Collection.DeleteOne(ctx, filter)
 	if err != nil {
-		logger.Log.Error(err, "Error while deleting resolution rule for rule_id: "+ruleId)
+		logger.Error(err, "Error while deleting resolution rule for rule_id: "+ruleId)
 		return err
 	}
-	logger.Log.Info("Successfully deleted resolution rule with rule_id: " + ruleId)
+	logger.Info("Successfully deleted resolution rule with rule_id: " + ruleId)
 	return nil
 }

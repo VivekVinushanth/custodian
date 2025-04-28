@@ -28,8 +28,8 @@ type cachedToken struct {
 	Claims     map[string]interface{}
 }
 
-// ValidateRequest validates Authorization: Bearer token from context
-func ValidateRequest(c *gin.Context) (map[string]interface{}, error) {
+// ValidateAuthentication validates Authorization: Bearer token from context
+func ValidateAuthentication(c *gin.Context) (map[string]interface{}, error) {
 	log.Print("are we here to validate token?")
 	token, err := extractBearerToken(c)
 	if err != nil {
@@ -147,4 +147,101 @@ func introspectToken(token string) (map[string]interface{}, error) {
 	}
 
 	return result, nil
+}
+
+func GetTokenFromIS(applicationID string) (string, error) {
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Only for local/dev
+	}
+	client := &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: tr,
+	}
+
+	endpoint := "https://localhost:9443/oauth2/token"
+
+	data := url.Values{}
+	data.Set("grant_type", "client_credentials")
+	//data.Set("scope", "test")
+	data.Set("tokenBindingId", applicationID) // Add application ID as token binding ID
+
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("failed to create token request: %w", err)
+	}
+
+	// Basic Auth Header (e.g., client_id:client_secret)
+	auth := "k06eyXqdJvoSBx_steWLWdCruBca:fjxoAQVCJlvTprKxZVd3tIl733fzWrvB5gJcKgqBBRYa" // Replace with actual client credentials if available
+	encoded := base64.StdEncoding.EncodeToString([]byte(auth))
+
+	req.Header.Add("Authorization", "Basic "+encoded)
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error sending token request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("token request failed: status %d - %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("failed to decode token response: %w", err)
+	}
+
+	accessToken, ok := result["access_token"].(string)
+	if !ok {
+		return "", fmt.Errorf("access_token not found in response")
+	}
+
+	log.Printf("New access token generated: %s", accessToken)
+	return accessToken, nil
+}
+
+func RevokeToken(token string) error {
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: tr,
+	}
+
+	endpoint := "https://localhost:9443/oauth2/revoke"
+
+	data := url.Values{}
+	data.Set("token", token)
+
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
+	if err != nil {
+		return fmt.Errorf("failed to create revoke request: %w", err)
+	}
+
+	// Basic Auth Header (same as token endpoint)
+	auth := "k06eyXqdJvoSBx_steWLWdCruBca:fjxoAQVCJlvTprKxZVd3tIl733fzWrvB5gJcKgqBBRYa" // Replace with actual client credentials if available
+	encoded := base64.StdEncoding.EncodeToString([]byte(auth))
+
+	req.Header.Add("Authorization", "Basic "+encoded)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending revoke request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("revoke request failed: status %d - %s", resp.StatusCode, string(body))
+	}
+
+	log.Printf("Token revoked successfully: %s", token)
+	return nil
 }

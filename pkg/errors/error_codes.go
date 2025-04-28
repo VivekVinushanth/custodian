@@ -27,9 +27,21 @@ var (
 		Description: "Error while updating resolution rule of the organization.",
 	}
 
+	ErrWhileAddingEvent = ErrorMessage{
+		Code:        "15005",
+		Message:     "Error while adding event.",
+		Description: "Error while adding event.",
+	}
+
 	ErrBadRequest = ErrorMessage{
 		Code:    "11001",
 		Message: "Invalid body format.",
+	}
+
+	ErrUnAuthorizedRequest = ErrorMessage{
+		Code:        "11002",
+		Message:     "Unauthorized",
+		Description: "Authorization failure. Authorization information was invalid or missing from your request.",
 	}
 
 	ErrNoResolutionRules = ErrorMessage{

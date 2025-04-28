@@ -61,44 +61,7 @@ func (repo *EventRepository) AddEvents(events []models.Event) error {
 	return nil
 }
 
-// GetUserEvent fetches a specific event by `event_id`
-func (repo *EventRepository) GetUserEvent(permaID, eventID string) (*models.Event, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	filter := bson.M{"perma_id": permaID, "event_id": eventID}
-	var event models.Event
-	err := repo.Collection.FindOne(ctx, filter).Decode(&event)
-	if err != nil {
-		return nil, err
-	}
-	return &event, nil
-}
-
-// GetUserEvents fetches all events for a user
-func (repo *EventRepository) GetUserEvents(permaID string) ([]models.Event, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	filter := bson.M{"perma_id": permaID}
-	cursor, err := repo.Collection.Find(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var events []models.Event
-	for cursor.Next(ctx) {
-		var event models.Event
-		if err := cursor.Decode(&event); err == nil {
-			events = append(events, event)
-		}
-	}
-
-	return events, nil
-}
-
-// GetUserEvents fetches all events for a user
+// FindEvents fetches all events for a user
 func (repo *EventRepository) FindEvents(filters []string, timeFilter bson.M) ([]models.Event, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -144,8 +107,18 @@ func (repo *EventRepository) FindEvents(filters []string, timeFilter bson.M) ([]
 	return events, nil
 }
 
-func (repo *EventRepository) DeleteEvent(permaID, eventID string) error {
-	filter := bson.M{"perma_id": permaID, "event_id": eventID}
+func (repo *EventRepository) FindEvent(eventId string) (*models.Event, error) {
+	filter := bson.M{"event_id": eventId}
+	var event models.Event
+	err := repo.Collection.FindOne(context.TODO(), filter).Decode(&event)
+	if err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func (repo *EventRepository) DeleteEvent(eventId string) error {
+	filter := bson.M{"event_id": eventId}
 	_, err := repo.Collection.DeleteOne(context.TODO(), filter)
 	return err
 }

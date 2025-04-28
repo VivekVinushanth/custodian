@@ -7,6 +7,17 @@ mongodb:
   event_collection: "events"
   consent_collection: "consents"
 
+log:
+  debug_enabled: true
+
+auth:
+  cors_allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:3001"
+    - "https://a8cb2cd1-0b15-4861-810c-d148b964d3a0.e1-us-east-azure.choreoapps.dev"
+    - "https://7ae7a48f-409c-4152-b389-4e476be31258.e1-us-east-azure.choreoapps.dev"
+    - "https://localhost:9001"
+
 addr:
   host: 0.0.0.0
   port: 8900
