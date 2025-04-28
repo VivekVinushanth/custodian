@@ -20,7 +20,7 @@ go.work.sum
 
 # env file
 .env
-*/*.env
+config/*.env
 
 # IDE specific files
 .idea/
