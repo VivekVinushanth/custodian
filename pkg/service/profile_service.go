@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/wso2/identity-customer-data-service/pkg/constants"
+	errors2 "github.com/wso2/identity-customer-data-service/pkg/errors"
 	"github.com/wso2/identity-customer-data-service/pkg/locks"
 	"github.com/wso2/identity-customer-data-service/pkg/models"
 	"github.com/wso2/identity-customer-data-service/pkg/repository"
-	"github.com/wso2/identity-customer-data-service/pkg/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"log"
+	"net/http"
 	"reflect"
 	"sort"
 	"strconv"
@@ -19,27 +20,18 @@ import (
 	"time"
 )
 
-//// UserInput represents input data for creating a profile
-//type UserInput struct {
-//	OriginCountry string                  `json:"origin_country" binding:"required"`
-//	UserIds       []string                `json:"user_ids,omitempty"`
-//	Identity      *models.IdentityData    `json:"identity,omitempty"`
-//	Personality   *models.PersonalityData `json:"personality,omitempty"`
-//	AppContext    []models.AppContext     `json:"app_context,omitempty"`
-//}
-
 func CreateOrUpdateProfile(event models.Event) (*models.Profile, error) {
+
 	mongoDB := locks.GetMongoDBInstance()
-	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
+	profileRepo := repositories.NewProfileRepository(mongoDB.Database, constants.ProfileCollection)
 
 	lock := locks.GetDistributedLock()
 	lockKey := "lock:profile:" + event.ProfileId
 
 	// 🔁 Retry logic for acquiring the lock
-	maxAttempts := 10
 	var acquired bool
 	var err error
-	for i := 0; i < maxAttempts; i++ {
+	for i := 0; i < constants.MaxRetryAttempts; i++ {
 		acquired, err = lock.Acquire(lockKey, 1*time.Second)
 		if err != nil {
 			return nil, fmt.Errorf("failed to acquire lock: %v", err)
@@ -54,7 +46,6 @@ func CreateOrUpdateProfile(event models.Event) (*models.Profile, error) {
 	}
 	defer lock.Release(lockKey)
 
-	// todo: if we gather login events from IS then we can use tbat userid - check if it is attached to any profile already-if so append if not then create a new profile
 	// Safe insert if not exists (upsert)
 	profile := models.Profile{
 		ProfileId: event.ProfileId,
@@ -63,7 +54,6 @@ func CreateOrUpdateProfile(event models.Event) (*models.Profile, error) {
 			ListProfile: true,
 		},
 	}
-	log.Println("before profile added", event.ProfileId)
 
 	if err := profileRepo.InsertProfile(profile); err != nil {
 		return nil, fmt.Errorf("failed to insert or ensure profile: %v", err)
@@ -75,7 +65,6 @@ func CreateOrUpdateProfile(event models.Event) (*models.Profile, error) {
 		return nil, fmt.Errorf("profile not visible after insert: %v", err)
 	}
 
-	log.Println("profile added succesfully", profileFetched.ProfileId)
 	return profileFetched, nil
 }
 
@@ -91,7 +80,6 @@ func unifyProfiles(newProfile models.Profile) (*models.Profile, error) {
 		return nil, fmt.Errorf("failed to acquire lock for unification: %v", err)
 	}
 	if !acquired {
-		log.Println("Unification already in progress for:", newProfile.ProfileId)
 		return nil, nil // Or retry logic if needed
 	}
 	defer lock.Release(lockKey) // Always release
@@ -118,11 +106,10 @@ func unifyProfiles(newProfile models.Profile) (*models.Profile, error) {
 		for _, existingProfile := range existingMasterProfiles {
 
 			if doesProfileMatch(existingProfile, newProfile, rule) {
-				log.Println("Unifying profiles:", existingProfile.ProfileId, "and", newProfile.ProfileId, "on ", rule.RuleName)
 
 				// 🔄 Merge the existing master to the old master of current
 				mongoDB := locks.GetMongoDBInstance()
-				schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
+				schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, constants.ProfileSchemaCollection)
 				traitRules, _ := schemaRepo.GetSchemaRules()
 				newMasterProfile := MergeProfileFields(existingProfile, newProfile, traitRules)
 
@@ -283,13 +270,18 @@ func checkForMatch(existingValues, newValues []interface{}) bool {
 
 // GetProfile retrieves a profile from MongoDB by `perma_id`
 func GetProfile(ProfileId string) (*models.Profile, error) {
-	//logger := pkg.GetLogger()
+
 	mongoDB := locks.GetMongoDBInstance()
-	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
+	profileRepo := repositories.NewProfileRepository(mongoDB.Database, constants.ProfileCollection)
 
 	profile, _ := profileRepo.FindProfileByID(ProfileId)
 	if profile == nil {
-		return nil, errors.New("profile not found12122")
+		clientError := errors2.NewClientError(errors2.ErrorMessage{
+			Code:        errors2.ErrProfileNotFound.Code,
+			Message:     errors2.ErrProfileNotFound.Message,
+			Description: errors2.ErrProfileNotFound.Description,
+		}, http.StatusNotFound)
+		return nil, clientError
 	}
 
 	if profile.ProfileHierarchy.IsParent {
@@ -326,52 +318,6 @@ func buildProfileHierarchy(profile *models.Profile, masterProfile *models.Profil
 		profileHierarchy.ChildProfiles = masterProfile.ProfileHierarchy.ChildProfiles
 	}
 	return profileHierarchy
-}
-
-// GetProfileWithToken retrieves a profile from MongoDB by `perma_id`
-func GetProfileWithToken(ProfileId string, token string) (*models.Profile, error) {
-	//mongoDB := pkg.GetMongoDBInstance()
-	//profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
-
-	profile, _ := GetProfile(ProfileId)
-	if profile == nil {
-		return nil, errors.New("profile not found")
-	}
-
-	if profile.IdentityAttributes == nil {
-		return profile, nil
-		// identity not found in profile
-	}
-	// Safely fetch userId from profile.Identity
-	userIDRaw, ok := profile.IdentityAttributes["user_id"]
-	log.Println("user id raw ===", userIDRaw)
-	log.Println("uokkkk=", ok)
-	if !ok {
-		return profile, nil
-	}
-	log.Println("user id raw ===", userIDRaw)
-	userID, ok := userIDRaw.(string)
-	if !ok || userID == "" {
-		return nil, errors.New("invalid user_id in profile.identity")
-	}
-
-	// Fetch SCIM user data
-	userData, err := utils.GetUserDataFromSCIM(token, userID)
-	log.Println("userData===", userData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch user data from SCIM: %v", err)
-	}
-	if userData == nil {
-		return nil, errors.New("user data not found from SCIM")
-	}
-
-	// Merge enriched SCIM data into identity (in-memory only)
-	enrichedIdentity := utils.ExtractIdentityFromSCIM(userData)
-	for k, v := range enrichedIdentity {
-		profile.IdentityAttributes[k] = v
-	}
-
-	return profile, nil
 }
 
 // DeleteProfile removes a profile from MongoDB by `perma_id`
@@ -473,17 +419,6 @@ func GetAllProfiles() ([]models.Profile, error) {
 	return existingProfiles, nil
 }
 
-//func GetAllProfilesWithFilter(filters []string) ([]models.Profile, error) {
-//
-//	mongoDB := locks.GetMongoDBInstance()
-//	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
-//	existingProfiles, err := profileRepo.GetAllProfilesWithFilter(filters)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return existingProfiles, nil
-//}
-
 func GetAllProfilesWithFilter(filters []string) ([]models.Profile, error) {
 	mongoDB := locks.GetMongoDBInstance()
 	profileRepo := repositories.NewProfileRepository(mongoDB.Database, constants.ProfileCollection)
@@ -535,7 +470,6 @@ func GetAllProfilesWithFilter(filters []string) ([]models.Profile, error) {
 func parseTypedValue(valueType string, raw string) interface{} {
 	switch valueType {
 	case "int":
-		log.Println("are wewewerwrerere=")
 		i, _ := strconv.Atoi(raw)
 		log.Println(i)
 		return i
@@ -564,20 +498,6 @@ func UpdateAppContextData(ProfileId, appID string, updates bson.M) error {
 	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
 	return profileRepo.PatchAppContext(ProfileId, appID, updates)
 }
-
-// GetAppContextData fetches app context for a specific app inside a profile
-//func GetAppContextData(ProfileId, appId string) (*models.ApplicationData, error) {
-//	mongoDB := locks.GetMongoDBInstance()
-//	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
-//	return profileRepo.GetAppContext(ProfileId, appId)
-//}
-
-// GetListOfAppContextData fetches all app contexts for a user
-//func GetListOfAppContextData(profileId string) ([]models.ApplicationData, error) {
-//	mongoDB := locks.GetMongoDBInstance()
-//	profileRepo := repositories.NewProfileRepository(mongoDB.Database, "profiles")
-//	return profileRepo.GetListOfAppContext(profileId)
-//}
 
 // AddOrUpdatePersonalityData replaces (PUT) the personality data inside Profile
 func AddOrUpdatePersonalityData(ProfileId string, personalityData map[string]interface{}) error {
@@ -629,16 +549,6 @@ func mergeProfiles(existing models.Profile, newProfile models.Profile) models.Pr
 		}
 	}
 
-	// 🔹 Merge `personality`
-	//if newProfile.Personality != nil {
-	//	if mergedProfile.Personality == nil {
-	//		mergedProfile.Personality = newProfile.Personality
-	//	} else {
-	//		mergedProfile.Personality.Interests = mergeLists(existing.Personality.Interests, newProfile.Personality.Interests)
-	//		//mergedProfile.Personality.CommunicationPreferences = mergeCommunicationPreferences(existing.Personality.CommunicationPreferences, newProfile.Personality.CommunicationPreferences)
-	//	}
-	//}
-
 	// 🔹 Merge `app_context` grouped by `app_id`
 	if newProfile.ApplicationData != nil {
 		mergedProfile.ApplicationData = mergeAppContexts(existing.ApplicationData, newProfile.ApplicationData)
@@ -687,7 +597,7 @@ func MergeProfileFields(existing, incoming models.Profile, traitRules []models.P
 
 		// Apply merged result
 		switch traitNamespace {
-		case "personality":
+		case "traits":
 			if merged.Traits == nil {
 				merged.Traits = map[string]interface{}{}
 			}
@@ -774,57 +684,22 @@ func mergeAppContexts(existing []models.ApplicationData, newContexts []models.Ap
 	// 🔹 Merge new app contexts
 	for _, newApp := range newContexts {
 		if existingApp, found := appContextMap[newApp.AppId]; found {
-			// 🔹 Merge attributes if `app_id` exists
-			//existingApp.SubscriptionPlan = highestTier(existingApp.SubscriptionPlan, newApp.SubscriptionPlan)
-			//existingApp.AppPermissions = mergeLists(existingApp.AppPermissions, newApp.AppPermissions)
+			//  Merge attributes if `app_id` exists
 			existingApp.Devices = mergeDeviceLists(existingApp.Devices, newApp.Devices)
 			appContextMap[newApp.AppId] = existingApp
 		} else {
-			// 🔹 AddEventSchema new app context if `app_id` doesn't exist
+			// AddEventSchema new app context if `app_id` doesn't exist
 			appContextMap[newApp.AppId] = newApp
 		}
 	}
 
-	// 🔹 Convert map back to list
+	//  Convert map back to list
 	var mergedAppContexts []models.ApplicationData
 	for _, app := range appContextMap {
 		mergedAppContexts = append(mergedAppContexts, app)
 	}
 
 	return mergedAppContexts
-}
-
-// mergeLists merges lists and removes duplicates
-func mergeLists(existing, newList []string) []string {
-	uniqueMap := make(map[string]bool)
-	for _, item := range existing {
-		uniqueMap[item] = true
-	}
-	for _, item := range newList {
-		uniqueMap[item] = true
-	}
-
-	var mergedList []string
-	for item := range uniqueMap {
-		mergedList = append(mergedList, item)
-	}
-	return mergedList
-}
-
-// highestTier returns the highest tier between two subscription plans
-func highestTier(existing, newTier string) string {
-	tierOrder := map[string]int{"free": 1, "basic": 2, "premium": 3, "enterprise": 4}
-
-	existingPriority, exists := tierOrder[existing]
-	newPriority, newExists := tierOrder[newTier]
-
-	if !exists && newExists {
-		return newTier
-	}
-	if newExists && newPriority > existingPriority {
-		return newTier
-	}
-	return existing
 }
 
 // mergeDeviceLists merges devices, ensuring no duplicates based on `device_id`

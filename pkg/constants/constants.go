@@ -8,6 +8,7 @@ const (
 	ProfileCollection         = "profiles"
 	ProfileSchemaCollection   = "profile_schema"
 )
+const MaxRetryAttempts = 10
 
 var AllowedPropertyTypes = map[string]bool{
 	"string":        true,

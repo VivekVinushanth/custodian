@@ -85,4 +85,10 @@ var (
 		Message:     "Invalid value for the profile trait.",
 		Description: "Allowed types are: string, int, boolean, timestamp, array",
 	}
+
+	ErrProfileNotFound = ErrorMessage{
+		Code:        "11005",
+		Message:     "Profile not found.",
+		Description: "No user profile record found for the given profile_id",
+	}
 )

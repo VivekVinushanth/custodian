@@ -17,13 +17,6 @@ import (
 // AddEvents stores a single event in MongoDB
 func AddEvents(event models.Event) error {
 
-	if event.ProfileId == "" {
-
-		return fmt.Errorf("perma_id not found")
-	}
-
-	// todo: check if events are valid as per the schema
-
 	// Step 1: Ensure profile exists (with lock protection)
 	_, err := CreateOrUpdateProfile(event)
 	if err != nil {
@@ -32,7 +25,7 @@ func AddEvents(event models.Event) error {
 
 	// Step 2: Store the event
 	mongoDB := locks.GetMongoDBInstance()
-	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
+	eventRepo := repositories.NewEventRepository(mongoDB.Database, constants.EventCollection)
 	event.EventType = strings.ToLower(event.EventType)
 	event.EventName = strings.ToLower(event.EventName)
 	if err := eventRepo.AddEvent(event); err != nil {
@@ -49,13 +42,13 @@ func AddEvents(event models.Event) error {
 // GetEvents retrieves all events
 func GetEvents(filters []string, timeFilter bson.M) ([]models.Event, error) {
 	mongoDB := locks.GetMongoDBInstance()
-	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
+	eventRepo := repositories.NewEventRepository(mongoDB.Database, constants.EventCollection)
 	return eventRepo.FindEvents(filters, timeFilter)
 }
 
 func GetEvent(eventId string) (*models.Event, error) {
 	mongoDB := locks.GetMongoDBInstance()
-	eventRepo := repositories.NewEventRepository(mongoDB.Database, "events")
+	eventRepo := repositories.NewEventRepository(mongoDB.Database, constants.EventCollection)
 	return eventRepo.FindEvent(eventId)
 }
 
@@ -64,8 +57,6 @@ func EnrichProfile(event models.Event) error {
 	profileRepo := repositories.NewProfileRepository(locks.GetMongoDBInstance().Database, "profiles")
 
 	profile, _ := waitForProfile(event.ProfileId, 5, 100*time.Millisecond)
-
-	// todo: identity attribute rules has to be added by default
 
 	if profile == nil {
 		return fmt.Errorf("profile not found to enrich")
@@ -207,9 +198,6 @@ func EnrichProfile(event models.Event) error {
 		namespace := traitPath[0] // e.g., identity
 		traitName := traitPath[1] // e.g., email
 		fieldPath := fmt.Sprintf("%s.%s", namespace, traitName)
-		log.Println("namespace -", namespace)
-		log.Println("namespace -", traitName)
-		log.Println("namespace -", fieldPath)
 		update := bson.M{fieldPath: value}
 		switch namespace {
 		case "traits":
@@ -235,7 +223,6 @@ func EnrichProfile(event models.Event) error {
 
 	//// 🔹 Enrich identity data if user_logged_in event
 	if strings.ToLower(event.EventType) == "identify" {
-		log.Println("Enriching identity data for profile========== ", event.Properties)
 
 		permaID := event.ProfileId
 		if profile.ProfileHierarchy != nil && !profile.ProfileHierarchy.IsParent {
@@ -300,9 +287,7 @@ func CountEventsMatchingRule(permaID string, trigger models.RuleTrigger, timeRan
 
 	count := 0
 	for _, event := range events {
-		log.Print("do we have event", event)
 		if EvaluateConditions(event, trigger.Conditions) {
-			log.Println("are we here to seee?")
 			count++
 		}
 	}
@@ -354,7 +339,6 @@ func EvaluateConditions(event models.Event, triggerConditions []models.RuleCondi
 			return false
 		}
 	}
-	log.Println("are we herewewe")
 	return true
 }
 func EvaluateCondition(actual interface{}, operator string, expected string) bool {
@@ -473,8 +457,6 @@ func MergeTraitValue(existing interface{}, incoming interface{}, strategy string
 		case "arrayofint":
 			return combineUniqueInts(toIntSlice(existing), toIntSlice(incoming))
 		case "arrayofstring":
-			log.Printf("existing value", existing)
-			log.Printf("incoming value", incoming)
 			existingArr := toStringSlice(existing)
 			incomingArr := toStringSlice(incoming)
 			return combineUniqueStrings(existingArr, incomingArr)
@@ -511,7 +493,6 @@ func toStringSlice(value interface{}) []string {
 		}
 		return result
 	default:
-		log.Printf("⚠️ Cannot convert %T to []string", value)
 		return []string{}
 	}
 }
@@ -535,7 +516,6 @@ func toIntSlice(value interface{}) []int {
 	case float64:
 		return []int{int(v)}
 	default:
-		log.Printf("⚠️ Unexpected type for toIntSlice: %T", v)
 		return []int{}
 	}
 }

@@ -8,87 +8,15 @@ import (
 	"github.com/wso2/identity-customer-data-service/pkg/locks"
 	"github.com/wso2/identity-customer-data-service/pkg/models"
 	"github.com/wso2/identity-customer-data-service/pkg/repository"
-	"github.com/wso2/identity-customer-data-service/pkg/utils"
-	"go.mongodb.org/mongo-driver/bson"
 	"net/http"
 	"strings"
 	"time"
 )
 
-func AddEventSchema(schema models.EventSchema) error {
-	mongoDB := locks.GetMongoDBInstance()
-	eventSchemaRepo := repositories.NewEventSchemaRepository(mongoDB.Database, constants.EventSchemaCollection)
-	if schema.EventSchemaId == "" {
-		schema.EventSchemaId = uuid.NewString()
-	}
-	if schema.Properties == nil {
-		clientError := errors.NewClientError(errors.ErrorMessage{
-			Code:        errors.ErrNoEventProps.Code,
-			Message:     errors.ErrNoEventProps.Message,
-			Description: errors.ErrNoEventProps.Description,
-		}, http.StatusBadRequest)
-		return clientError
-	}
-	for _, prop := range schema.Properties {
-		if prop.PropertyName == "" || prop.PropertyType == "" {
-			clientError := errors.NewClientError(errors.ErrorMessage{
-				Code:        errors.ErrNoEventPropValue.Code,
-				Message:     errors.ErrNoEventPropValue.Message,
-				Description: errors.ErrNoEventPropValue.Description,
-			}, http.StatusBadRequest)
-			return clientError
-		}
-		if !constants.AllowedPropertyTypes[strings.ToLower(prop.PropertyType)] {
-			clientError := errors.NewClientError(errors.ErrorMessage{
-				Code:        errors.ErrNoEventPropValue.Code,
-				Message:     errors.ErrNoEventPropValue.Message,
-				Description: "Invalid property type: " + prop.PropertyType + errors.ErrNoEventPropValue.Description,
-			}, http.StatusBadRequest)
-			return clientError
-		}
-		normalizedType, err := utils.NormalizePropertyType(prop.PropertyType)
-		if err != nil {
-			return errors.NewClientError(errors.ErrorMessage{
-				Code:        errors.ErrImproperProperty.Code,
-				Message:     errors.ErrImproperProperty.Message,
-				Description: "Invalid property type: " + prop.PropertyType,
-			}, http.StatusBadRequest)
-		}
-
-		// Store normalized type instead of original
-		prop.PropertyType = normalizedType
-	}
-	return eventSchemaRepo.AddEventSchema(schema)
-}
-
-func GetEventSchemas() ([]models.EventSchema, error) {
-	mongoDB := locks.GetMongoDBInstance()
-	eventSchemaRepo := repositories.NewEventSchemaRepository(mongoDB.Database, constants.EventSchemaCollection)
-	return eventSchemaRepo.GetAllEventSchemas()
-}
-
-func GetEventSchema(id string) (*models.EventSchema, error) {
-	mongoDB := locks.GetMongoDBInstance()
-	eventSchemaRepo := repositories.NewEventSchemaRepository(mongoDB.Database, constants.EventSchemaCollection)
-	return eventSchemaRepo.GetById(id)
-}
-
-func PatchEventSchema(id string, updates bson.M) error {
-	mongoDB := locks.GetMongoDBInstance()
-	eventSchemaRepo := repositories.NewEventSchemaRepository(mongoDB.Database, constants.EventSchemaCollection)
-	return eventSchemaRepo.Patch(id, updates)
-}
-
-func DeleteEventSchema(id string) error {
-	mongoDB := locks.GetMongoDBInstance()
-	eventSchemaRepo := repositories.NewEventSchemaRepository(mongoDB.Database, constants.EventSchemaCollection)
-	return eventSchemaRepo.Delete(id)
-}
-
 func AddEnrichmentRule(rule models.ProfileEnrichmentRule) error {
-	fmt.Printf("AddEnrichmentRule called with rule: %+v\n", rule)
+
 	mongoDB := locks.GetMongoDBInstance()
-	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
+	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, constants.ProfileSchemaCollection)
 
 	if rule.RuleId == "" {
 		// if it is not existing, its new. If not its an update.
@@ -200,24 +128,24 @@ func AddEnrichmentRule(rule models.ProfileEnrichmentRule) error {
 
 func GetEnrichmentRules() ([]models.ProfileEnrichmentRule, error) {
 	mongoDB := locks.GetMongoDBInstance()
-	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
+	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, constants.ProfileSchemaCollection)
 	return schemaRepo.GetSchemaRules()
 }
 
 func GetEnrichmentRulesByFilter(filters []string) ([]models.ProfileEnrichmentRule, error) {
 	mongoDB := locks.GetMongoDBInstance()
-	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
+	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, constants.ProfileSchemaCollection)
 	return schemaRepo.GetEnrichmentRulesByFilter(filters)
 }
 
 func GetEnrichmentRule(traitId string) (models.ProfileEnrichmentRule, error) {
 	mongoDB := locks.GetMongoDBInstance()
-	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
+	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, constants.ProfileSchemaCollection)
 	return schemaRepo.GetSchemaRule(traitId)
 }
 
 func DeleteEnrichmentRule(ruleId string) error {
 	mongoDB := locks.GetMongoDBInstance()
-	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, "profile_schema")
+	schemaRepo := repositories.NewProfileSchemaRepository(mongoDB.Database, constants.ProfileSchemaCollection)
 	return schemaRepo.DeleteSchemaRule(ruleId)
 }

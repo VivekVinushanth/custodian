@@ -8,23 +8,16 @@ import (
 	"github.com/wso2/identity-customer-data-service/pkg/utils"
 	"log"
 	"net/http"
-	"strings"
 )
 
 // GetProfile handles profile retrieval requests
 func (s Server) GetProfile(c *gin.Context, profileId string) {
 
 	// Optional: Extract token from Authorization header
-	authHeader := c.GetHeader("Authorization")
 	var profile *models.Profile
 	var err error
 
-	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		profile, err = service.GetProfileWithToken(profileId, token)
-	} else {
-		profile, err = service.GetProfileWithToken(profileId, "")
-	}
+	profile, err = service.GetProfile(profileId)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving profile"})
@@ -42,17 +35,10 @@ func (s Server) GetProfile(c *gin.Context, profileId string) {
 // GetTraits handles profile retrieval requests
 func (s Server) GetTraits(c *gin.Context, profileId string) {
 
-	// Optional: Extract token from Authorization header
-	authHeader := c.GetHeader("Authorization")
 	var profile *models.Profile
 	var err error
 
-	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		profile, err = service.GetProfileWithToken(profileId, token)
-	} else {
-		profile, err = service.GetProfileWithToken(profileId, "")
-	}
+	service.GetProfile(profileId)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving profile"})
