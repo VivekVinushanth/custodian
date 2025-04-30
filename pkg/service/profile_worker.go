@@ -72,8 +72,6 @@ func EnrichProfile(event models.Event) error {
 		}
 	}
 
-	defaultUpdateIdentityAttributes(event, profile, profileRepo)
-
 	err := defaultUpdateAppData(event, profile, profileRepo)
 	if err != nil {
 		return err
@@ -223,44 +221,6 @@ func defaultUpdateAppData(event models.Event, profile *models.Profile, profileRe
 	return nil
 }
 
-// todo: deprecate this. Nothing should be hard-coded...they can be default but never hardcoded
-func defaultUpdateIdentityAttributes(event models.Event, profile *models.Profile, profileRepo *repositories.ProfileRepository) {
-	if strings.ToLower(event.EventType) != "identify" {
-		return
-	}
-
-	permaID := event.ProfileId
-	if profile.ProfileHierarchy != nil && !profile.ProfileHierarchy.IsParent {
-		permaID = profile.ProfileHierarchy.ParentProfileID
-	}
-
-	// Load enrichment rules (for value type inference)
-	rules, _ := GetEnrichmentRules()
-	valueTypeMap := make(map[string]string)
-	for _, r := range rules {
-		if strings.HasPrefix(r.PropertyName, "identity_attributes.") {
-			valueTypeMap[r.PropertyName] = r.ValueType
-		}
-	}
-
-	// Keys to extract from event.Properties
-	keys := []string{"email", "user_name", "first_name", "last_name", "user_id", "phone_number"}
-
-	for _, key := range keys {
-		if raw, ok := event.Properties[key]; ok && raw != "" {
-			fullField := fmt.Sprintf("identity_attributes.%s", key)
-
-			// Apply type parsing if rule exists
-			if valType, exists := valueTypeMap[fullField]; exists && valType != "" {
-				raw = parseValueForValueType(valType, raw)
-			}
-
-			filter := bson.M{fullField: raw}
-			_ = profileRepo.UpsertIdentityAttribute(permaID, filter)
-		}
-	}
-}
-
 func unifyProfiles(newProfile models.Profile) (*models.Profile, error) {
 	mongoDB := locks.GetMongoDBInstance()
 
@@ -399,7 +359,6 @@ func MergeProfiles(existingProfile models.Profile, incomingProfile models.Profil
 		}
 		traitNamespace := traitPath[0]
 		propertyName := traitPath[1]
-		log.Println("propertyName:", propertyName)
 
 		// Gather the fields for enrichment profiles
 		var existingVal, newVal interface{}
@@ -407,12 +366,9 @@ func MergeProfiles(existingProfile models.Profile, incomingProfile models.Profil
 		case "traits":
 			if existingProfile.Traits != nil {
 				existingVal = existingProfile.Traits[propertyName]
-				log.Println("existingVal:", existingVal)
 			}
 			if incomingProfile.Traits != nil {
 				newVal = incomingProfile.Traits[propertyName]
-				log.Println("newVal:", newVal)
-
 			}
 		case "identity_attributes":
 			if existingProfile.IdentityAttributes != nil {
@@ -641,36 +597,6 @@ func mergeSlices(a, b interface{}) interface{} {
 	return result.Interface()
 }
 
-//// mergeAppData merges app contexts, ensuring grouping by `app_id`
-//func mergeAppData(existing []models.ApplicationData, newContexts []models.ApplicationData) []models.ApplicationData {
-//	appContextMap := make(map[string]models.ApplicationData)
-//
-//	//  AddEventSchema existing app contexts to the map
-//	for _, app := range existing {
-//		appContextMap[app.AppId] = app
-//	}
-//
-//	//  Merge new app contexts
-//	for _, newApp := range newContexts {
-//		if existingApp, found := appContextMap[newApp.AppId]; found {
-//			//  Merge attributes if `app_id` exists
-//			existingApp.Devices = mergeDeviceLists(existingApp.Devices, newApp.Devices)
-//			appContextMap[newApp.AppId] = existingApp
-//		} else {
-//			// AddEventSchema new app context if `app_id` doesn't exist
-//			appContextMap[newApp.AppId] = newApp
-//		}
-//	}
-//
-//	//  Convert map back to list
-//	var mergedAppContexts []models.ApplicationData
-//	for _, app := range appContextMap {
-//		mergedAppContexts = append(mergedAppContexts, app)
-//	}
-//
-//	return mergedAppContexts
-//}
-
 // mergeDeviceLists merges devices, ensuring no duplicates based on `device_id`
 func mergeDeviceLists(existingDevices, newDevices []models.Devices) []models.Devices {
 	deviceMap := make(map[string]models.Devices)
@@ -713,7 +639,6 @@ func MergeTraitValue(existing interface{}, incoming interface{}, strategy string
 		case "arrayofint":
 			return combineUniqueInts(toIntSlice(existing), toIntSlice(incoming))
 		case "arrayofstring":
-			log.Println("are we herer")
 			existingArr := toStringSlice(existing)
 			incomingArr := toStringSlice(incoming)
 			return combineUniqueStrings(existingArr, incomingArr)
@@ -786,7 +711,6 @@ func combineUniqueStrings(a, b []string) []string {
 			combined = append(combined, val)
 		}
 	}
-	log.Println("combined values", combined)
 	return combined
 }
 

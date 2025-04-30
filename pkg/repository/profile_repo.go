@@ -91,7 +91,6 @@ func (repo *ProfileRepository) FindProfileByID(profileId string) (*models.Profil
 		if err == mongo.ErrNoDocuments {
 			return nil, nil // Profile not found is not an error
 		}
-		log.Print("Error finding profile==123: " + err.Error())
 		return nil, err
 	}
 	return &profile, nil
