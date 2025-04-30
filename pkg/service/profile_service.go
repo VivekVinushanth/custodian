@@ -8,7 +8,6 @@ import (
 	"github.com/wso2/identity-customer-data-service/pkg/logger"
 	"github.com/wso2/identity-customer-data-service/pkg/models"
 	"github.com/wso2/identity-customer-data-service/pkg/repository"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -83,7 +82,6 @@ func GetProfile(ProfileId string) (*models.Profile, error) {
 	} else {
 		// fetching merged master profile
 		masterProfile, err := profileRepo.FindProfileByID(profile.ProfileHierarchy.ParentProfileID)
-		log.Print("we are here to fetch parent")
 
 		// todo: app context should be restricted for apps that is requesting these
 		// setting the current profile hierarchy to the master profile

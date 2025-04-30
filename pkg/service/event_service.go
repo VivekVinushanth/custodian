@@ -51,7 +51,8 @@ func GetEvent(eventId string) (*models.Event, error) {
 	return eventRepo.FindEvent(eventId)
 }
 
-func CountEventsMatchingRule(permaID string, trigger models.RuleTrigger, timeRange string) (int, error) {
+// CountEventsMatchingRule retrieves count of events that has occured in a timerange
+func CountEventsMatchingRule(profileId string, trigger models.RuleTrigger, timeRange string) (int, error) {
 
 	eventRepo := repositories.NewEventRepository(locks.GetMongoDBInstance().Database, constants.EventCollection)
 	durationInSec, err := strconv.Atoi(timeRange) // parse string to int
@@ -62,10 +63,11 @@ func CountEventsMatchingRule(permaID string, trigger models.RuleTrigger, timeRan
 
 	currentTime := time.Now().UTC().Unix()          // current time in seconds
 	startTime := currentTime - int64(durationInSec) // assuming value is in minutes
+	log.Println("efef", trigger.EventType)
+	log.Println("efef", trigger.EventName)
 
-	// Build MongoDB filter
 	filter := bson.M{
-		"profile_id": permaID,
+		"profile_id": profileId,
 		"event_type": strings.ToLower(trigger.EventType),
 		"event_name": strings.ToLower(trigger.EventName),
 		"event_timestamp": bson.M{
@@ -78,52 +80,15 @@ func CountEventsMatchingRule(permaID string, trigger models.RuleTrigger, timeRan
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch events for counting: %v", err)
 	}
-
 	count := 0
 	for _, event := range events {
+		log.Printf("Evaluating event: %v", event)
 		if EvaluateConditions(event, trigger.Conditions) {
+			log.Printf("incrementing")
 			count++
 		}
 	}
-
 	return count, nil
-}
-
-func GetNestedTraitValue(profile models.Profile, traitPath string) interface{} {
-	parts := strings.Split(traitPath, ".")
-	if len(parts) < 2 {
-		return nil
-	}
-	namespace := parts[0] // identity, session, etc.
-	fieldPath := parts[1:]
-
-	var data map[string]interface{}
-	switch namespace {
-	case "identity_attributes":
-		data = profile.IdentityAttributes
-	case "application_data":
-		//data = profile.AppContext
-		// todo: need to fix this place
-		return nil
-	case "traits":
-		data = profile.Traits
-	default:
-		return nil
-	}
-
-	curr := data
-	for i, part := range fieldPath {
-		if i == len(fieldPath)-1 {
-			return curr[part]
-		}
-		if next, ok := curr[part].(map[string]interface{}); ok {
-			curr = next
-		} else {
-			return nil
-		}
-	}
-
-	return nil
 }
 
 func EvaluateConditions(event models.Event, triggerConditions []models.RuleCondition) bool {

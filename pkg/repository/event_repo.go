@@ -123,7 +123,7 @@ func (repo *EventRepository) DeleteEventsByProfileId(permaID string) error {
 }
 
 func (repo *EventRepository) DeleteEventsByAppID(permaID, appID string) error {
-	filter := bson.M{"perma_id": permaID, "app_id": appID}
+	filter := bson.M{"profile_id": permaID, "application_id": appID}
 	_, err := repo.Collection.DeleteMany(context.TODO(), filter)
 	return err
 }

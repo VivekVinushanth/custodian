@@ -116,7 +116,8 @@ func EnrichProfile(event models.Event) error {
 					}
 				}
 			case "count":
-				count, err := CountEventsMatchingRule(profile.ProfileId, rule.Trigger, rule.TimeRange)
+				// here since events are per profile - going back to child profile
+				count, err := CountEventsMatchingRule(event.ProfileId, rule.Trigger, rule.TimeRange)
 				if err != nil {
 					logger.Info("Failed to compute count for rule %s: %v", rule.RuleId, err)
 					continue
