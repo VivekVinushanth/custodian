@@ -343,6 +343,67 @@ paths:
         '204':
           description: Consent(s) revoked
 
+  /consent-categories:
+    get:
+      tags: [Consent Configurations]
+      summary: Get all consent categories
+      operationId: getAllConsentCategories
+      responses:
+        '200':
+          description: List of consent categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConsentCategory'
+    post:
+      tags: [Consent Configurations]
+      summary: Add consent category
+      operationId: addConsentCategory
+      responses:
+        '200':
+          description: Consent category added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentCategory'
+  /consent-categories/{id}:
+    get:
+      tags: [Consent Configurations]
+      summary: Get consent category
+      operationId: getConsentCategory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Consent category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentCategory'
+    put:
+      tags: [Consent Configurations]
+      summary: Update consent category
+      operationId: updateConsentCategory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Consent category updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentCategory'
+
 components:
   schemas:
     Profile:
@@ -574,6 +635,31 @@ components:
           description: Whether the rule is currently active
           example: true
 
+    ConsentCategory:
+      type: object
+      required:
+        - category_name
+        - category_identifier
+        - purpose
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 7fa06d1e-688f-481b-8263-29c1f5ce1493
+        category_name:
+          type: string
+          example: User behavior analytics
+        category_identifier:
+          type: string
+          example: analytics
+        purpose:
+          type: string
+          enum: [profiling, personalization, destination]
+        destinations:
+          type: array
+          items:
+            type: string
+
     Consent:
       type: object
       required:
@@ -595,28 +681,12 @@ components:
         application_id:
           type: string
           example: "custodian_client_app"
-        consent_type:
+        category_identifier:
           type: string
-          enum: [collection, sharing]
-          example: "collection"
+          example: "analytics"
         granted:
           type: boolean
           example: true
-        categories:
-          type: array
-          description: Consent categories vary by consent_type
-          items:
-            type: string
-            enum:
-              - track
-              - page
-              - identify
-              - all
-              - none
-              - complete_profile
-              - identity_attributes
-              - traits
-              - application_data
         consent_channel:
           type: string
           description: Source of consent

@@ -1,549 +1,433 @@
 import ballerina/http;
 
 service /customer\-data/'1\.0\.0 on new http:Listener(9090) {
-    # Delete event schema
+    # Endpoint to get all profiles
     #
-    # + attribute - Attribute path to delete
-    # + return - Attribute deleted 
-    resource function delete schema/event/[string event_type](string attribute) returns http:Ok {
-        return http:OK;
-    }
-
-    # Delete profile schema
-    #
-    # + attribute - Attribute path to delete
-    # + return - Schema entry deleted 
-    resource function delete schema/profile(string attribute) returns http:NoContent {
-        return http:NO_CONTENT;
-    }
-
-    # Fetch events emitted by a user
-    #
-    # + perma_id - Unique identifier for the profile
-    # + app_id - Unique identifier for the application
-    # + searchString - Optional search filter
-    # + offset - Number of records to skip for pagination
-    # + 'limit - Maximum number of records to return
     # + return - returns can be any of following types 
-    # http:Ok (Events retrieved successfully)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/[string app_id]/events(string? searchString, int? offset, int:Signed32? 'limit) returns Event[]|http:BadRequest {
-        return [];
+    # http:InternalServerError (Server encountered error while responding to the request)
+    resource function get profiles() returns Profile[]|http:InternalServerError {
+        return [
+            {
+                profile_id: "09f5a769-9eb2-40ec-9c76-478e303724af",
+                origin_country: "",
+                identity_attributes: {
+                    email: ["cvivekvinushanth@gmail.com"],
+                    phone_number: ["+1234567890"]
+                },
+                traits: {
+                    interests: ["Plush Toys", "Games Puzzles"],
+                    spending_capability: 500
+                },
+                application_data: [
+                    {
+                        application_id: "custodian_client_app",
+                        devices: [
+                            {
+                                device_id: "a2cdf159-502e-47e0-8ce6-922e693dfbdd",
+                                last_used: 1746014018,
+                                os: "macOS",
+                                browser: "Chrome"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ];
     }
 
-    # Fetch specific event emitted by a user
+    # Endpoint to retrieve a profile by ID
     #
-    # + perma_id - Unique identifier for the profile
-    # + app_id - Unique identifier for the application
-    # + event_id - Unique identifier for the event
-    # + searchString - Optional search filter
-    # + offset - Number of records to skip for pagination
-    # + 'limit - Maximum number of records to return
+    # + profile_id - Unique identifier for the profile
     # + return - returns can be any of following types 
-    # http:Ok (Events retrieved successfully)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/[string app_id]/events/[string event_id](string? searchString, int? offset, int:Signed32? 'limit) returns Event|http:BadRequest {
-        return {};
-    }
-
-    # Fetch alias of a user
-    #
-    # + perma_id - Unique identifier for the user
-    # + return - returns can be any of following types 
-    # http:Ok (Fetch alias of a profile)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/alias() returns string[]|http:BadRequest {
-        return [];
-    }
-
-    # Fetch users bounded to a profile
-    #
-    # + perma_id - Unique identifier for the user
-    # + return - returns can be any of following types 
-    # http:Ok (Fetch alias of a profile)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/bindUsers() returns string[]|http:BadRequest {
-        return [];
-    }
-
-    # Fetch profileconsent
-    #
-    # + perma_id - Unique identifier for the user
-    # + return - returns can be any of following types 
-    # http:Ok (Fetch list of consented apps to collect data)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/consent() returns Consent|http:BadRequest {
-        return {};
-    }
-
-    # Fetch applications users has given consent to collect
-    #
-    # + perma_id - Unique identifier for the user
-    # + return - returns can be any of following types 
-    # http:Ok (Fetch list of consented apps to collect data)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/consent/collect() returns string[]|http:BadRequest {
-        return [];
-    }
-
-    # Fetch applications users has given consent to share
-    #
-    # + perma_id - Unique identifier for the user
-    # + return - returns can be any of following types 
-    # http:Ok (Fetch alias of a profile)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/consent/share() returns string[]|http:BadRequest {
-        return [];
-    }
-
-    # Fetch 360 profile of a user
-    #
-    # + perma_id - Unique identifier for the user
-    # + includeAppContext - Whether to include application context data
-    # + app_id - Application ID for fetching profile data with app context
-    # + return - returns can be any of following types 
-    # http:Ok (Personality data retrieved successfully)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/profile(string? app_id, boolean includeAppContext = false) returns inline_response_200|http:BadRequest {
-        return {};
-    }
-
-    # Fetch App context of the user
-    #
-    # + perma_id - Unique identifier for the user
-    # + app_id - Unique identifier for the application
-    # + return - returns can be any of following types 
-    # http:Ok (Personality data retrieved successfully)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/profile/[string app_id]/app_context() returns AppContext|http:BadRequest {
+    # http:NotFound (Profile not found)
+    resource function get profiles/[string profile_id]() returns Profile|error {
         return {
-            app_id: "",
-            subscription_plan: "",
-            app_permissions: [],
-            feature_flags: {
-                beta_features_enabled: false,
-                dark_mode: false
+            profile_id: profile_id,
+            origin_country: "",
+            identity_attributes: {
+                email: ["cvivekvinushanth@gmail.com"],
+                phone_number: ["+1234567890"]
             },
-            last_active_app: "",
-            usage_metrics: {
-                daily_active_time: 0,
-                monthly_logins: 0
+            traits: {
+                interests: ["Plush Toys", "Games Puzzles"],
+                spending_capability: 500
             },
-            devices: [],
-            regions_accessed: []
+            application_data: [
+                {
+                    application_id: "custodian_client_app",
+                    devices: [
+                        {
+                            device_id: "a2cdf159-502e-47e0-8ce6-922e693dfbdd",
+                            last_used: 1746014018,
+                            os: "macOS",
+                            browser: "Chrome"
+                        }
+                    ]
+                }
+            ]
         };
     }
 
-    # Fetch App context of the user
+    # Endpoint to delete a profile by ID
     #
-    # + perma_id - Unique identifier for the user
+    # + profile_id - Unique identifier for the profile
     # + return - returns can be any of following types 
-    # http:Ok (Personality data retrieved successfully)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/profile/app_context() returns AppContext[]|http:BadRequest {
-        return [];
+    # http:NoContent (Profile deleted successfully)
+    # http:NotFound (Profile not found)
+    resource function delete profiles/[string profile_id]() returns http:NoContent|http:NotFound {
+        return http:NO_CONTENT;
     }
 
-    # Fetch 360 profile of a user
+    # Endpoint to get traits of a profile
     #
-    # + perma_id - Unique identifier for the user
+    # + profile_id - Unique identifier for the profile
     # + return - returns can be any of following types 
-    # http:Ok (Personality data retrieved successfully)
-    # http:BadRequest (Bad input parameter)
-    resource function get [string perma_id]/profile/personality() returns PersonalityData|http:BadRequest {
+    # http:NotFound (Profile not found)
+    resource function get profiles/[string profile_id]/traits() returns record {}|http:NotFound {
         return {
-            interests: [],
-            preferred_language: "",
-            communication_preferences: {
-                email_notifications: false,
-                sms_notifications: false,
-                push_notifications: false
+            "interests": ["Plush Toys", "Games Puzzles"],
+            "spending_capability": 500
+        };
+    }
+
+    # Endpoint to add a single event
+    #
+    # + payload - Event data
+    # + return - returns can be any of following types 
+    # http:Created (Event added successfully)
+    # http:BadRequest (Invalid event object)
+    resource function post events(@http:Payload Event payload) returns http:Created|http:BadRequest {
+        return http:CREATED;
+    }
+
+    # Endpoint to get events
+    #
+    # + return - returns can be any of following types 
+    # http:InternalServerError (Server encountered error while responding to the request)
+    resource function get events() returns Event[]|http:InternalServerError {
+        return [
+            {
+                profile_id: "02efada5-e235-42e5-b6eb-5f94c641e36d",
+                applicationId: "custodian_client_app",
+                org_id: "carbon.super",
+                event_type: "Track",
+                event_name: "category_searched",
+                event_id: "3ad853cc-492c-4063-884f-e7ae5bdd9d8f",
+                event_timestamp: 1746018379,
+                context: {
+                    user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+                    browser: "Chrome",
+                    os: "macOS",
+                    screen: { width: 1728, height: 1117 },
+                    locale: "en-US",
+                    timezone: "Asia/Colombo",
+                    device_id: "0105b700-2efe-4567-afbe-14cdd99bb6ac"
+                },
+                locale: "en-US",
+                properties: {
+                    action: "select_category",
+                    objecttype: "category",
+                    objectname: "Plush Toys"
+                }
+            }
+        ];
+    }
+
+    # Endpoint to get a specific event by ID
+    #
+    # + event_id - Unique identifier for the event
+    # + return - returns can be any of following types 
+    # http:NotFound (Event not found)
+    resource function get events/[string event_id]() returns Event|error {
+        return {
+            profile_id: "02efada5-e235-42e5-b6eb-5f94c641e36d",
+            applicationId: "custodian_client_app",
+            org_id: "carbon.super",
+            event_type: "Track",
+            event_name: "category_searched",
+            event_id: event_id,
+            event_timestamp: 1746018379,
+            context: {
+                user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+                browser: "Chrome",
+                os: "macOS",
+                screen: { width: 1728, height: 1117 },
+                locale: "en-US",
+                timezone: "Asia/Colombo",
+                device_id: "0105b700-2efe-4567-afbe-14cdd99bb6ac"
             },
-            shopping_preferences: {
-                favorite_brands: [],
-                discount_preference: ""
+            locale: "en-US",
+            properties: {
+                action: "select_category",
+                objecttype: "category",
+                objectname: "Plush Toys"
             }
         };
     }
 
-    # Get event schema definition by type
+    # Endpoint to get write key by application ID
     #
-    # + return - Event schema retrieved 
-    resource function get schema/event/[string event_type]() returns SchemaDefinition[] {
-        return [];
-    }
-
-    # Get profile schema definition
-    #
-    # + return - Profile schema retrieved 
-    resource function get schema/profile() returns SchemaDefinition[] {
-        return [];
-    }
-
-    # update personality data for a user
-    #
-    # + perma_id - Unique identifier for the profile
-    # + app_id - Unique identifier for the application
+    # + application_id - Unique identifier for the application
     # + return - returns can be any of following types 
-    # http:Created (Personality data added successfully)
-    # http:BadRequest (Invalid input data)
-    resource function patch [string perma_id]/profile/[string app_id]/app_context(@http:Payload AppContext payload) returns http:Created|http:BadRequest {
+    # http:NotFound (Write key not found)
+    resource function get events/write\-key/[string application_id]() returns string|error {
+        return ""; // Replace with actual logic
+    }
+
+    # Endpoint to add a new identity resolution rule
+    #
+    # + payload - Unification rule data
+    # + return - returns can be any of following types 
+    # http:Created (Unification rule added successfully)
+    # http:BadRequest (Invalid unification rule object)
+    resource function post unification\-rules(@http:Payload UnificationRule payload) returns http:Created|error {
         return http:CREATED;
     }
 
-    # update personality data for a user
-    #
-    # + perma_id - Unique identifier for the profile
-    # + return - returns can be any of following types 
-    # http:Created (Personality data added successfully)
-    # http:BadRequest (Invalid input data)
-    resource function patch [string perma_id]/profile/personality(@http:Payload PersonalityData payload) returns http:Created|http:BadRequest {
-        return http:CREATED;
-    }
-
-    # Patch event schema
-    #
-    # + return - Event schema patched 
-    resource function patch schema/event/[string event_type](@http:Payload SchemaDefinition[] payload) returns http:Ok {
-        return http:OK;
-    }
-
-    # Patch profile schema
+    # Endpoint to get all identity resolution rules
     #
     # + return - returns can be any of following types 
-    # http:Ok (Schema patched successfully)
-    # http:BadRequest (Bad request)
     # http:InternalServerError (Server encountered error while responding to the request)
-    resource function patch schema/profile(@http:Payload SchemaDefinition[] payload) returns http:Ok|http:BadRequest|http:InternalServerError {
+    resource function get unification\-rules() returns UnificationRule[]|error {
+        return [
+            { rule_id: "rule1", description: "Merge profiles with same email", conditions: {} },
+            { rule_id: "rule2", description: "Merge profiles with same phone number", conditions: {} }
+        ];
+    }
+
+    # Endpoint to get a specific unification rule by ID
+    #
+    # + rule_id - Unique identifier for the unification rule
+    # + return - returns can be any of following types 
+    # http:NotFound (Unification rule not found)
+    resource function get unification\-rules/[string rule_id]() returns UnificationRule|error {
+        return { rule_id: rule_id, description: "Merge profiles with same email", conditions: {} };
+    }
+
+    # Endpoint to delete a unification rule by ID
+    #
+    # + rule_id - Unique identifier for the unification rule
+    # + return - returns can be any of following types 
+    # http:NoContent (Unification rule deleted successfully)
+    # http:NotFound (Unification rule not found)
+    resource function delete unification\-rules/[string rule_id]() returns http:NoContent|error {
+        return http:NO_CONTENT;
+    }
+
+    # Endpoint to create a profile enrichment rule
+    #
+    # + payload - Profile enrichment rule data
+    # + return - returns can be any of following types 
+    # http:Created (Profile enrichment rule added successfully)
+    # http:BadRequest (Invalid profile enrichment rule object)
+    resource function post enrichment\-rules(@http:Payload ProfileEnrichmentRule payload) returns http:Created|error {
+        return http:CREATED;
+    }
+
+    # Endpoint to get all profile enrichment rules
+    #
+    # + return - returns can be any of following types 
+    # http:InternalServerError (Server encountered error while responding to the request)
+    resource function get enrichment\-rules() returns ProfileEnrichmentRule[]|error {
+        return [
+            { rule_id: "enrich1", description: "Add loyalty points", enrichment_data: {} },
+            { rule_id: "enrich2", description: "Add preferred language", enrichment_data: {} }
+        ];
+    }
+
+    # Endpoint to get a specific profile enrichment rule by ID
+    #
+    # + rule_id - Unique identifier for the profile enrichment rule
+    # + return - returns can be any of following types 
+    # http:NotFound (Profile enrichment rule not found)
+    resource function get enrichment\-rules/[string rule_id]() returns ProfileEnrichmentRule|error {
+        return { rule_id: rule_id, description: "Add loyalty points", enrichment_data: {} };
+    }
+
+    # Endpoint to replace a profile enrichment rule
+    #
+    # + rule_id - Unique identifier for the profile enrichment rule
+    # + payload - Profile enrichment rule data
+    # + return - returns can be any of following types 
+    # http:Ok (Profile enrichment rule replaced successfully)
+    # http:BadRequest (Invalid profile enrichment rule object)
+    resource function put enrichment\-rules/[string rule_id](@http:Payload ProfileEnrichmentRule payload) returns http:Ok|error {
         return http:OK;
     }
 
-    # Push profile events
+    # Endpoint to delete a profile enrichment rule by ID
     #
-    # + perma_id - Unique identifier for the profile
-    # + app_id - Unique identifier for the application
+    # + rule_id - Unique identifier for the profile enrichment rule
     # + return - returns can be any of following types 
-    # http:Created (Event added successfully)
-    # http:BadRequest (Invalid event object)
-    resource function post [string perma_id]/[string app_id]/event(@http:Payload Event payload) returns http:Created|http:BadRequest {
-        return http:CREATED;
+    # http:NoContent (Profile enrichment rule deleted successfully)
+    # http:NotFound (Profile not found)
+    resource function delete enrichment\-rules/[string rule_id]() returns http:NoContent|error {
+        return http:NO_CONTENT;
     }
 
-    # Push user events
+    # Endpoint to give or update consent
     #
-    # + perma_id - Unique identifier for the user
-    # + app_id - Unique identifier for the application
+    # + payload - Consent data
     # + return - returns can be any of following types 
-    # http:Created (Event added successfully)
-    # http:BadRequest (Invalid event object)
-    resource function post [string perma_id]/[string app_id]/events(@http:Payload Event payload) returns http:Created|http:BadRequest {
+    # http:Created (Consent added successfully)
+    # http:BadRequest (Invalid consent object)
+    resource function post consents(@http:Payload Consent payload) returns http:Created|error {
+        // Example implementation for adding a consent
         return http:CREATED;
     }
 
-    # Merge different identities of a known user
+    # Endpoint to get all consents for a user
     #
-    # + perma_id - Unique identifier for the profile
+    # + profile_id - Unique identifier for the profile
     # + return - returns can be any of following types 
-    # http:Created (Alias successfully updated)
-    # http:BadRequest (Invalid alias request)
-    resource function post [string perma_id]/alias(@http:Payload Alias payload) returns http:Created|http:BadRequest {
-        return http:CREATED;
+    # http:NotFound (Profile not found)
+    resource function get consents/[string profile_id]() returns Consent[]|error {
+        return [
+            {
+                consent_id: "consent1",
+                profile_id: profile_id,
+                application_id: "app1",
+                category_identifier: "analytics",
+                granted: true,
+                consent_channel: "web",
+                timestamp: 1682841600,
+                source_ip: "192.168.1.1",
+                user_agent: "Mozilla/5.0"
+            },
+            {
+                consent_id: "consent2",
+                profile_id: profile_id,
+                application_id: "app2",
+                category_identifier: "marketing",
+                granted: false,
+                consent_channel: "mobile",
+                timestamp: 1682845200,
+                source_ip: "192.168.1.2",
+                user_agent: "Mozilla/5.0"
+            }
+        ];
     }
 
-    # bind user identities to a known profile
+    # Endpoint to revoke all consents for a user
     #
-    # + perma_id - Unique identifier for the profile
+    # + profile_id - Unique identifier for the profile
     # + return - returns can be any of following types 
-    # http:Created (Alias successfully updated)
-    # http:BadRequest (Invalid alias request)
-    resource function post [string perma_id]/bindUsers(@http:Payload string[] payload) returns http:Created|http:BadRequest {
-        return http:CREATED;
+    # http:NoContent (Consents revoked successfully)
+    # http:NotFound (Profile not found)
+    resource function delete consents/[string profile_id]() returns http:NoContent|http:NotFound {
+        // Example implementation for revoking all consents for a user
+        return http:NO_CONTENT;
     }
 
-    # provide consent to collect data
-    #
-    # + perma_id - Unique identifier for the profile
-    # + return - returns can be any of following types 
-    # http:Created (Alias successfully updated)
-    # http:BadRequest (Invalid alias request)
-    resource function post [string perma_id]/consent/collect(@http:Payload string[] payload) returns http:Created|http:BadRequest {
-        return http:CREATED;
-    }
-
-    # provide consent to share profile
-    #
-    # + perma_id - Unique identifier for the profile
-    # + return - returns can be any of following types 
-    # http:Created (Alias successfully updated)
-    # http:BadRequest (Invalid alias request)
-    resource function post [string perma_id]/consent/share(@http:Payload string[] payload) returns http:Created|http:BadRequest {
-        return http:CREATED;
-    }
-
-    # Create a user profile
+    # Endpoint to get all consent categories
     #
     # + return - returns can be any of following types 
-    # http:Created (Alias successfully updated)
-    # http:BadRequest (Invalid alias request)
-    resource function post profile(@http:Payload ProfileData payload) returns http:Created|http:BadRequest {
-        return http:CREATED;
+    # http:InternalServerError (Server encountered error while responding to the request)
+    resource function get consent\-categories() returns ConsentCategory[]|error {
+        return [
+            {
+                id: "7fa06d1e-688f-481b-8263-29c1f5ce1493",
+                category_name: "User behavior analytics",
+                category_identifier: "analytics",
+                purpose: "profiling",
+                destinations: ["dest1", "dest2"]
+            },
+            {
+                id: "8fa06d1e-688f-481b-8263-29c1f5ce1494",
+                category_name: "Marketing",
+                category_identifier: "marketing",
+                purpose: "advertising",
+                destinations: ["dest1"]
+            }
+        ];
     }
 
-    # Add new event schema definition
+    # Endpoint to add a consent category
     #
-    # + return - Event schema added 
-    resource function post schema/event/[string event_type](@http:Payload SchemaDefinition[] payload) returns http:Created {
-        return http:CREATED;
-    }
-
-    # Add new profile schema definition
-    #
-    # + return - Schema added successfully 
-    resource function post schema/profile(@http:Payload SchemaDefinition[] payload) returns http:Created {
-        return http:CREATED;
-    }
-
-    # update personality data for a user
-    #
-    # + app_id - Unique identifier for the application
+    # + payload - Consent category data
     # + return - returns can be any of following types 
-    # http:Created (Personality data added successfully)
-    # http:BadRequest (Invalid input data)
-    resource function put [string perma_id]/profile/[string app_id]/app_context(@http:Payload AppContext payload) returns http:Created|http:BadRequest {
+    # http:Created (Consent category added successfully)
+    # http:BadRequest (Invalid consent category object)
+    resource function post consent\-categories(@http:Payload ConsentCategory payload) returns http:Created|error {
         return http:CREATED;
     }
 
-    # update personality data for a user
+    # Endpoint to get a specific consent category by ID
     #
-    # + perma_id - Unique identifier for the profile
+    # + id - Unique identifier for the consent category
     # + return - returns can be any of following types 
-    # http:Created (Personality data added successfully)
-    # http:BadRequest (Invalid input data)
-    resource function put [string perma_id]/profile/personality(@http:Payload PersonalityData payload) returns http:Created|http:BadRequest {
-        return http:CREATED;
+    # http:NotFound (Consent category not found)
+    resource function get consent\-categories/[string id]() returns ConsentCategory|error {
+        return {
+            id: id,
+            category_name: "User behavior analytics",
+            category_identifier: "analytics",
+            purpose: "profiling",
+            destinations: ["dest1", "dest2"]
+        };
     }
 
-    # Replace event schema
+    # Endpoint to update a consent category
     #
-    # + return - Schema replaced 
-    resource function put schema/event/[string event_type](@http:Payload SchemaDefinition[] payload) returns http:Ok {
-        return http:OK;
-    }
-
-    # Replace entire profile schema
-    #
-    # + return - Schema replaced successfully 
-    resource function put schema/profile(@http:Payload SchemaDefinition[] payload) returns http:Ok {
+    # + id - Unique identifier for the consent category
+    # + payload - Consent category data
+    # + return - returns can be any of following types 
+    # http:Ok (Consent category updated successfully)
+    # http:BadRequest (Invalid consent category object)
+    resource function put consent\-categories/[string id](@http:Payload ConsentCategory payload) returns http:Ok|error {
         return http:OK;
     }
 }
 
-public type PageEvent_engagement record {
-    # Custom engagement score
-    decimal engagement_score?;
-    # List of interactive elements clicked
-    string[] interactive_elements?;
+public type Profile record {
+    string profile_id;
+    string origin_country;
+    map<anydata> identity_attributes; // Dynamic object for identity attributes
+    map<anydata> traits; // Dynamic object for traits
+    anydata application_data; // Dynamic object for application data
 };
 
-public type SchemaDefinition record {
-    # JSON path (e.g., identity.email)
-    string attribute;
-    "string"|"number"|"boolean"|"array"|"object" 'type;
-    "unify"|"combine"|"ignore" merge_strategy = "unify";
-    boolean masking = false;
-    "hash"|"redacted"|"partial"|"none" masking_strategy = "none";
+public type UnificationRule record {
+    string rule_id;
+    string description;
+    record {} conditions;
 };
 
-public type ProfileDataWithoutAppContext record {
-    string originCountry;
-    string[] user_ids?;
-    IdentityData identity?;
-    PersonalityData personality?;
+public type ProfileEnrichmentRule record {
+    string rule_id;
+    string description;
+    record {} enrichment_data;
 };
 
-public type PageEvent_page record {
-    # Full URL of the page
-    string url?;
-    # Page path without domain
-    string path?;
-    # URL of the previous page
-    string referrer?;
-    # Title of the page
-    string title?;
-    # Query parameters from the URL
-    string search?;
-    # Logical category of the page
-    string page_category?;
-    # Type of page (e.g., landing_page, blog)
-    string page_type?;
-    # Type of content (e.g., article, video)
-    string content_type?;
-    # Percentage of page scrolled
-    string scroll_depth?;
-    # Time spent on the page in seconds
-    int time_on_page?;
-    # Identifier for the previous page
-    string previous_page?;
-};
-
-public type AppContext_regions_accessed record {
-    string country?;
-    string city?;
-    string timezone?;
-    string first_accessed?;
-    string last_accessed?;
-};
-
-public type AppContext record {
-    string app_id?;
-    string subscription_plan?;
-    string[] app_permissions?;
-    AppContext_feature_flags feature_flags?;
-    string last_active_app?;
-    AppContext_usage_metrics usage_metrics?;
-    AppContext_devices[] devices?;
-    AppContext_regions_accessed[] regions_accessed?;
-};
-
-# Event properties for tracking user interactions
-public type TrackEvent record {
-    # The specific action performed (click, scroll)
-    string action?;
-    # The type of object interacted with (button, product)
-    string object_type?;
-    # Unique identifier for the interacted object
-    string object_id?;
-    # Human-readable name of the object
-    string object_name?;
-    # A numeric value associated with the event
-    decimal value?;
-    # Additional label for categorization
-    string label?;
-    # Source of the interaction (website, mobile app)
-    string 'source?;
-    # URL where the event occurred
-    string url?;
-    # URL of the referring page
-    string referrer?;
-};
-
-public type AppContext_feature_flags record {
-    boolean beta_features_enabled?;
-    boolean dark_mode?;
-};
-
-public type ProfileData record {
-    string originCountry;
-    string[] user_ids?;
-    IdentityData identity?;
-    PersonalityData personality?;
-    AppContext[] app_context?;
-};
-
-public type PersonalityData_shopping_preferences record {
-    string[] favorite_brands?;
-    string discount_preference?;
-};
-
-public type AppContext_devices record {
-    string device_id?;
-    string device_type?;
-    string os?;
-    string browser?;
-    string browser_version?;
-    string ip?;
-    string last_used?;
-};
-
-public type PageEvent_utm record {
-    # Traffic source (e.g., google, facebook)
-    string 'source?;
-    # Marketing medium (e.g., email, social)
-    string medium?;
-    # Campaign name
-    string campaign?;
-};
-
-# Event properties for user identity tracking
-public type IdentifyEvent record {
-    # Unique identifier for the user
-    string user_id?;
-    # Custom user attributes
-    record {} traits?;
-};
-
-public type Consent record {
-    string[] collect;
-    string[] share;
-};
-
-public type Alias record {
-    string previous_perma_id;
-};
-
-# Event properties for page interactions
-public type PageEvent record {
-    PageEvent_page page?;
-    PageEvent_utm utm?;
-    PageEvent_engagement engagement?;
-};
-
-public type PersonalityData_communication_preferences record {
-    boolean email_notifications?;
-    boolean sms_notifications?;
-    boolean push_notifications?;
+public type ConsentCategory record {
+    string id;
+    string category_name;
+    string category_identifier;
+    string purpose;
+    string[] destinations;
 };
 
 public type Event record {
-    # Type of the event
-    "Identify"|"Track"|"Page" event_type;
-    # Name of the event
+    string profile_id;
+    string applicationId;
+    string org_id;
+    string event_type;
     string event_name;
-    # Unique ID for the event
     string event_id;
-    # Unique ID for the application
-    string app_id;
-    # Time at which the event occurred
-    string event_timestamp;
-    # Device and session information
-    record {} context;
-    # User's language and regional settings
-    string locale?;
-    PageEvent|TrackEvent|IdentifyEvent properties?;
+    int event_timestamp;
+    map<anydata> context; // Dynamic object for context
+    string locale;
+    map<anydata> properties; // Dynamic object for properties
 };
 
-public type IdentityData record {
-    string username?;
-    string email?;
-    string[] phone_numbers?;
-    string first_name?;
-    string last_name?;
-    string display_name?;
-    string preferred_username?;
-    string profile_url?;
-    string picture?;
-    string[] roles?;
-    string[] groups?;
-    "active"|"inactive"|"suspended" account_status?;
-    string created_at?;
-    string updated_at?;
-    string idp_provider?;
-    boolean mfa_enabled?;
-    string last_login?;
-    string locale?;
-    string timezone?;
-};
-
-public type inline_response_200 ProfileDataWithoutAppContext|ProfileData;
-
-public type AppContext_usage_metrics record {
-    int daily_active_time?;
-    int monthly_logins?;
-};
-
-public type PersonalityData record {
-    string[] interests?;
-    string preferred_language?;
-    PersonalityData_communication_preferences communication_preferences?;
-    PersonalityData_shopping_preferences shopping_preferences?;
+public type Consent record {
+    string consent_id;
+    string profile_id;
+    string application_id;
+    string category_identifier;
+    boolean granted;
+    string consent_channel;
+    int timestamp;
+    string source_ip;
+    string user_agent;
 };
