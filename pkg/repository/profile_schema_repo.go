@@ -21,7 +21,7 @@ func NewProfileSchemaRepository(db *mongo.Database, collection string) *ProfileS
 	}
 }
 
-func (repo *ProfileSchemaRepository) UpsertRule(rule models.ProfileEnrichmentRule) error {
+func (repo *ProfileSchemaRepository) UpsertEnrichmentRule(rule models.ProfileEnrichmentRule) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -34,7 +34,7 @@ func (repo *ProfileSchemaRepository) UpsertRule(rule models.ProfileEnrichmentRul
 	return err
 }
 
-func (repo *ProfileSchemaRepository) GetSchemaRules() ([]models.ProfileEnrichmentRule, error) {
+func (repo *ProfileSchemaRepository) GetProfileEnrichmentRules() ([]models.ProfileEnrichmentRule, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -95,7 +95,7 @@ func (repo *ProfileSchemaRepository) GetSchemaRule(traitId string) (models.Profi
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	filter := bson.M{"profile_field": traitId}
+	filter := bson.M{"rule_id": traitId}
 
 	var rule models.ProfileEnrichmentRule
 	err := repo.Collection.FindOne(ctx, filter).Decode(&rule)

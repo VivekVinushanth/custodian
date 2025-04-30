@@ -59,9 +59,8 @@ func (s Server) GetUnificationRule(c *gin.Context, ruleId string) {
 	c.JSON(http.StatusOK, rule)
 }
 
-// PatchUnificationRule applies partial updates to a resolution rule.
-func PatchUnificationRule(c *gin.Context) {
-	ruleId := c.Param("rule_id")
+// PatchUnificationRule applies partial updates to a unification rule.
+func (s Server) PatchUnificationRule(c *gin.Context, ruleId string) {
 
 	var updates bson.M
 	if err := c.ShouldBindJSON(&updates); err != nil {
@@ -78,6 +77,7 @@ func PatchUnificationRule(c *gin.Context) {
 	err := service.PatchResolutionRule(ruleId, updates)
 	if err != nil {
 		utils.HandleError(c, err)
+		return
 	}
 
 	rule, err := service.GetUnificationRule(ruleId)
@@ -90,8 +90,7 @@ func (s Server) DeleteUnificationRule(c *gin.Context, ruleId string) {
 
 	err := service.DeleteUnificationRule(ruleId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete unification rule"})
-		//logger.Log.Error("Error happened when updating resolution rule. " + err.Error())
+		utils.HandleError(c, err)
 		return
 	}
 

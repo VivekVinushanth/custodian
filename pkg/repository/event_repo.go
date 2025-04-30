@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/wso2/identity-customer-data-service/pkg/models"
-	"log"
 	"strings"
 	"time"
 
@@ -87,11 +86,6 @@ func (repo *EventRepository) FindEvents(filters []string, timeFilter bson.M) ([]
 	// Add time filter if provided
 	for k, v := range timeFilter {
 		filter[k] = v
-	}
-
-	// loop through each filter and log them
-	for k, v := range filter {
-		log.Print("Filterrerere: ", k, " = ", v)
 	}
 
 	cursor, err := repo.Collection.Find(ctx, filter)

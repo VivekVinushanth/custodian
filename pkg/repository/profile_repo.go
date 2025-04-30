@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/wso2/identity-customer-data-service/pkg/logger"
 	"github.com/wso2/identity-customer-data-service/pkg/models"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -300,15 +303,15 @@ func mergeDeviceLists(existing, incoming []models.Devices) []models.Devices {
 //	return flattened, nil
 //}
 
-// AddOrUpdatePersonalityData replaces (PUT) the personality data inside Profile
-func (repo *ProfileRepository) AddOrUpdatePersonalityData(profileId string, personalityData map[string]interface{}) error {
+// AddOrUpdateTraitsData replaces (PUT) the personality data inside Profile
+func (repo *ProfileRepository) AddOrUpdateTraitsData(profileId string, personalityData map[string]interface{}) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	filter := bson.M{"profile_id": profileId}
-	update := bson.M{"$set": bson.M{"personality": personalityData}}
+	update := bson.M{"$set": bson.M{"traits": personalityData}}
 
-	opts := options.Update().SetUpsert(true) // Insert if not found
+	opts := options.Update().SetUpsert(true)
 	_, err := repo.Collection.UpdateOne(ctx, filter, update, opts)
 	if err != nil {
 		return err
@@ -319,14 +322,14 @@ func (repo *ProfileRepository) AddOrUpdatePersonalityData(profileId string, pers
 
 // UpsertIdentityData replaces (PUT) the personality data inside Profile
 func (repo *ProfileRepository) UpsertIdentityData(profileId string, identityData map[string]interface{}) error {
-	//logger := pkg.GetLogger()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	filter := bson.M{"profile_id": profileId}
 	updateFields := bson.M{}
 	for k, v := range identityData {
-		updateFields["identity."+k] = v
+		updateFields["identity_attributes."+k] = v
 	}
 
 	update := bson.M{"$set": updateFields}
@@ -334,91 +337,12 @@ func (repo *ProfileRepository) UpsertIdentityData(profileId string, identityData
 	opts := options.Update().SetUpsert(true) // Insert if not found
 	_, err := repo.Collection.UpdateOne(ctx, filter, update, opts)
 	if err != nil {
-		//logger.LogMessage("ERROR", "Failed to update personality data: "+err.Error())
+		logger.Error(err, "Failed to update personality data")
 		return err
 	}
 
-	//logger.LogMessage("INFO", "Personality data updated for user "+profileId)
+	logger.Info("Identity Attributes data updated for user " + profileId)
 	return nil
-}
-
-// UpsertTraits applies PATCH updates to specific fields of PersonalityData
-func (repo *ProfileRepository) UpsertTraits(profileId string, updates bson.M) error {
-	//logger := pkg.GetLogger()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	filter := bson.M{"profile_id": profileId}
-	update := bson.M{"$set": updates}
-
-	_, err := repo.Collection.UpdateOne(ctx, filter, update)
-	if err != nil {
-		//logger.LogMessage("ERROR", "Failed to patch personality data: "+err.Error())
-		return err
-	}
-
-	//logger.LogMessage("INFO", "Personality data patched for user " + profileId)
-	return nil
-}
-
-// UpdatePreferenceData applies PATCH updates to specific fields of PersonalityData
-func (repo *ProfileRepository) UpdatePreferenceData(profileId string, updates bson.M) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	filter := bson.M{"profile_id": profileId}
-	_, err := repo.Collection.UpdateOne(ctx, filter, updates)
-	return err
-}
-
-// UpdateIdentityData adds or updates fields in IdentityData without overwriting existing non-empty values
-func (repo *ProfileRepository) UpdateIdentityData(profileId string, updates bson.M) error {
-	//logger := pkg.GetLogger()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Step 1: Ensure identity exists
-	identityInit := bson.M{
-		"$setOnInsert": bson.M{
-			"identity_attributes": bson.M{},
-		},
-	}
-	_, _ = repo.Collection.UpdateOne(ctx, bson.M{"profile_id": profileId, "identity_attributes": bson.M{"$exists": false}}, identityInit)
-
-	// Step 2: Prepare full update
-	setUpdates := bson.M{}
-	for k, v := range updates {
-		setUpdates["identity_attributes."+k] = v
-	}
-
-	update := bson.M{
-		"$set": setUpdates,
-	}
-
-	// Step 3: Apply
-	_, err := repo.Collection.UpdateOne(ctx, bson.M{"profile_id": profileId}, update)
-	return err
-}
-
-func (repo *ProfileRepository) GetPersonalityProfileData(profileId string) (map[string]interface{}, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	filter := bson.M{"profile_id": profileId}
-	projection := bson.M{"personality": 1}
-
-	var result struct {
-		Personality map[string]interface{} `bson:"personality"`
-	}
-
-	err := repo.Collection.FindOne(ctx, filter, options.FindOne().SetProjection(projection)).Decode(&result)
-	if err == mongo.ErrNoDocuments {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-
-	return result.Personality, nil
 }
 
 // GetAllProfiles retrieves all profiles from MongoDB
@@ -443,11 +367,11 @@ func (repo *ProfileRepository) GetAllProfiles() ([]models.Profile, error) {
 	var profiles []models.Profile
 	// 🔹 Decode all profiles
 	if err = cursor.All(ctx, &profiles); err != nil {
-		//logger.LogMessage("ERROR", "Error decoding profiles: "+err.Error())
+		logger.Error(err, "Error decoding profiles: "+err.Error())
 		return nil, err
 	}
 
-	//logger.LogMessage("INFO", "Successfully fetched profiles")
+	logger.Info("Successfully fetched profiles")
 	return profiles, nil
 }
 
@@ -491,10 +415,6 @@ func (repo *ProfileRepository) GetAllProfilesWithFilter(filters []string) ([]mod
 		}
 	}
 
-	for k, v := range filter {
-		log.Print("Filterrerere: ", k, " = ", v)
-	}
-
 	cursor, err := repo.Collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -536,35 +456,6 @@ func (repo *ProfileRepository) GetAllMasterProfilesExceptForCurrent(currentProfi
 	}
 
 	return profiles, nil
-}
-
-// AddOrUpdateUserIds merges and updates the user_ids list inside the profile
-func (repo *ProfileRepository) AddOrUpdateUserIds(profileId string, newUserIds []string) error {
-	//logger := pkg.GetLogger()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Step 1: Fetch the existing user_ids
-	var profile models.Profile
-	err := repo.Collection.FindOne(ctx, bson.M{"profile_id": profileId}).Decode(&profile)
-	if err != nil && err != mongo.ErrNoDocuments {
-		//logger.LogMessage("ERROR", "Failed to fetch profile for user_ids merge: "+err.Error())
-		return err
-	}
-
-	// Step 2: Perform the update
-	filter := bson.M{"profile_id": profileId}
-	update := bson.M{"$set": bson.M{"userids": newUserIds}}
-
-	opts := options.Update().SetUpsert(true)
-	_, err = repo.Collection.UpdateOne(ctx, filter, update, opts)
-	if err != nil {
-		//logger.LogMessage("ERROR", "Failed to update user_ids: "+err.Error())
-		return err
-	}
-
-	//logger.LogMessage("INFO", "User IDs updated for user "+profileId)
-	return nil
 }
 
 func (repo *ProfileRepository) UpdateParent(master models.Profile, newProfile models.Profile) error {
@@ -653,39 +544,240 @@ func (repo *ProfileRepository) AddChildProfile(parentProfile models.Profile, chi
 	return nil
 }
 
-// UpsertSocialData applies PATCH updates to specific fields of PersonalityData
-func (repo *ProfileRepository) UpsertSocialData(profileId string, updates bson.M) error {
-	//logger := pkg.GetLogger()
+func (repo *ProfileRepository) UpsertIdentityAttribute(profileId string, updates bson.M) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	filter := bson.M{"profile_id": profileId}
-	update := bson.M{"$set": updates}
-
-	_, err := repo.Collection.UpdateOne(ctx, filter, update)
+	// Fetch the current profile
+	var profile models.Profile
+	err := repo.Collection.FindOne(ctx, bson.M{"profile_id": profileId}).Decode(&profile)
 	if err != nil {
-		//logger.LogMessage("ERROR", "Failed to patch personality data: "+err.Error())
+		logger.Error(err, "Failed to fetch profile for identity update")
 		return err
 	}
 
-	//logger.LogMessage("INFO", "Personality data patched for user " + profileId)
+	finalUpdates := bson.M{}
+
+	for field, incomingVal := range updates {
+		property := strings.Split(field, ".")
+		propertyName := property[1]
+		existingVal := profile.IdentityAttributes[propertyName]
+		merged := enrichFieldValues(existingVal, incomingVal)
+		finalUpdates[field] = merged
+	}
+
+	if len(finalUpdates) == 0 {
+		return nil
+	}
+
+	_, err = repo.Collection.UpdateOne(ctx, bson.M{"profile_id": profileId}, bson.M{"$set": finalUpdates})
+	if err != nil {
+		logger.Error(err, "Failed to update identity attributes")
+		return err
+	}
+
+	logger.Info("Identity attribute updated for user " + profileId)
 	return nil
 }
 
-func (repo *ProfileRepository) UpsertIdentityAttributes(id string, updates bson.M) interface{} {
-	//logger := pkg.GetLogger()
+func (repo *ProfileRepository) UpsertTrait(profileId string, updates bson.M) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	filter := bson.M{"profile_id": id}
-	update := bson.M{"$set": updates}
-
-	_, err := repo.Collection.UpdateOne(ctx, filter, update)
+	var profile models.Profile
+	err := repo.Collection.FindOne(ctx, bson.M{"profile_id": profileId}).Decode(&profile)
 	if err != nil {
-		//logger.LogMessage("ERROR", "Failed to patch personality data: "+err.Error())
-		return err
+		return fmt.Errorf("failed to fetch profile: %w", err)
 	}
 
-	//logger.LogMessage("INFO", "Personality data patched for user " + profileId)
+	finalUpdates := bson.M{}
+	for field, incomingVal := range updates {
+		traitPath := strings.Split(field, ".")
+		traitName := traitPath[1]
+		existingVal := profile.Traits[traitName]
+		finalUpdates[field] = enrichFieldValues(existingVal, incomingVal)
+	}
+
+	if len(finalUpdates) == 0 {
+		return nil
+	}
+
+	_, err = repo.Collection.UpdateOne(ctx, bson.M{"profile_id": profileId}, bson.M{"$set": finalUpdates})
+	return err
+}
+
+func (repo *ProfileRepository) UpsertAppDatum(profileId string, appId string, update bson.M) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var profile models.Profile
+	err := repo.Collection.FindOne(ctx, bson.M{"profile_id": profileId}).Decode(&profile)
+	if err != nil {
+		return fmt.Errorf("failed to fetch profile: %w", err)
+	}
+
+	appIndex := -1
+	for i, app := range profile.ApplicationData {
+		if app.AppId == appId {
+			appIndex = i
+			break
+		}
+	}
+
+	if appIndex != -1 {
+		// App exists → merge
+		existingApp := profile.ApplicationData[appIndex]
+		finalSet := bson.M{}
+
+		for key, incomingVal := range update {
+			traitName := key
+			if strings.HasPrefix(key, "application_data.") {
+				traitName = strings.TrimPrefix(key, "application_data.")
+			}
+			existingVal := existingApp.AppSpecificData[traitName]
+			fieldPath := fmt.Sprintf("application_data.%d.app_specific_data.%s", appIndex, traitName)
+			finalSet[fieldPath] = enrichFieldValues(existingVal, incomingVal)
+		}
+
+		_, err := repo.Collection.UpdateOne(ctx, bson.M{"profile_id": profileId}, bson.M{"$set": finalSet})
+		if err != nil {
+			return fmt.Errorf("failed to update existing application_data entry: %w", err)
+		}
+		return nil
+	}
+
+	// App does not exist → insert
+	appSpecific := bson.M{}
+	for key, incomingVal := range update {
+		key = strings.TrimPrefix(key, "application_data.app_specific_data.")
+		appSpecific[key] = incomingVal
+	}
+
+	newApp := models.ApplicationData{
+		AppId:           appId,
+		AppSpecificData: appSpecific,
+	}
+
+	_, err = repo.Collection.UpdateOne(ctx, bson.M{"profile_id": profileId}, bson.M{
+		"$push": bson.M{"application_data": newApp},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to insert new application_data entry: %w", err)
+	}
 	return nil
+}
+
+func enrichFieldValues(existingVal, incomingVal interface{}) interface{} {
+	switch incoming := incomingVal.(type) {
+
+	case []string:
+		existing := toStringSlice(existingVal)
+		for _, item := range incoming {
+			if !containsString(existing, item) {
+				existing = append(existing, item)
+			}
+		}
+		return existing
+
+	case []int:
+		existing := toIntSlice(existingVal)
+		for _, item := range incoming {
+			if !containsInt(existing, item) {
+				existing = append(existing, item)
+			}
+		}
+		return existing
+
+	case string, int, bool:
+		return incoming // overwrite simple types
+
+	default:
+		return incoming // fallback
+	}
+}
+
+func toStringSlice(val interface{}) []string {
+	switch v := val.(type) {
+	case []interface{}:
+		var result []string
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				result = append(result, s)
+			}
+		}
+		return result
+	case primitive.A:
+		var result []string
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				result = append(result, s)
+			}
+		}
+		return result
+	case []string:
+		return v
+	default:
+		return nil
+	}
+}
+
+func toIntSlice(val interface{}) []int {
+	switch v := val.(type) {
+	case []interface{}:
+		var result []int
+		for _, item := range v {
+			if i, ok := toInt(item); ok {
+				result = append(result, i)
+			}
+		}
+		return result
+	case primitive.A:
+		var result []int
+		for _, item := range v {
+			if i, ok := toInt(item); ok {
+				result = append(result, i)
+			}
+		}
+		return result
+	case []int:
+		return v
+	default:
+		return nil
+	}
+}
+
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
+}
+
+func containsInt(slice []int, i int) bool {
+	for _, item := range slice {
+		if item == i {
+			return true
+		}
+	}
+	return false
+}
+
+func toInt(val interface{}) (int, bool) {
+	switch v := val.(type) {
+	case int:
+		return v, true
+	case int32:
+		return int(v), true
+	case int64:
+		return int(v), true
+	case float64:
+		return int(v), true
+	case string:
+		if i, err := strconv.Atoi(v); err == nil {
+			return i, true
+		}
+	}
+	return 0, false
 }

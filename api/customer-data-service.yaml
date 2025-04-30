@@ -54,25 +54,6 @@ paths:
         '204':
           description: Profile deleted successfully
 
-  /profiles/{profile_id}/traits:
-    get:
-      tags: [Profile]
-      summary: Get traits of the profile
-      operationId: getTraits
-      parameters:
-        - name: profile_id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Traits retrieved
-          content:
-            application/json:
-              schema:
-                type: object
-
   /events:
     post:
       tags: [Events]
@@ -143,7 +124,7 @@ paths:
   /unification-rules:
     post:
       tags: [Profile Unification]
-      summary: Add new identity resolution rule
+      summary: Add new unification rule
       operationId: addUnificationRule
       requestBody:
         required: true
@@ -153,14 +134,14 @@ paths:
               $ref: '#/components/schemas/UnificationRule'
       responses:
         '201':
-          description: Resolution rule added successfully
+          description: Unification rule added successfully
     get:
       tags: [Profile Unification]
-      summary: Get all identity resolution rules
+      summary: Get all unification rules
       operationId: getUnificationRules
       responses:
         '200':
-          description: Resolution rules retrieved
+          description: Unification rules retrieved
           content:
             application/json:
               schema:
@@ -171,7 +152,7 @@ paths:
   /unification-rules/{rule_id}:
     get:
       tags: [Profile Unification]
-      summary: Get identity resolution rule by ID
+      summary: Get unification rule rule by ID
       operationId: getUnificationRule
       parameters:
         - name: rule_id
@@ -181,14 +162,37 @@ paths:
             type: string
       responses:
         '200':
-          description: Resolution rule retrieved
+          description: Unification rule retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnificationRule'
+    patch:
+      tags: [ Profile Unification ]
+      summary: Patch unification rule
+      operationId: patchUnificationRule
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnificationRulePatch'
+      responses:
+        '200':
+          description: Unification rule retrieved
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnificationRule'
     delete:
       tags: [Profile Unification]
-      summary: Delete identity resolution rule
+      summary: Delete unification rule
       operationId: deleteUnificationRule
       parameters:
         - name: rule_id
@@ -461,13 +465,13 @@ components:
     ProfileEnrichmentRule:
       type: object
       properties:
-        enrichment_rule_id:
+        rule_id:
           type: string
-        enrichment_rule_name:
+        property_name:
           type: string
         description:
           type: string
-        rule_type:
+        property_type:
           type: string
           enum: [static, computed]
         value:
@@ -485,10 +489,6 @@ components:
         merge_strategy:
           type: string
           enum: [overwrite, combine, ignore]
-        masking_required:
-          type: boolean
-        masking_strategy:
-          type: string
         trigger:
           $ref: '#/components/schemas/RuleTrigger'
         created_at:
@@ -557,6 +557,22 @@ components:
           format: int64
           description: UNIX timestamp of last update
           example: 1744176544
+
+    UnificationRulePatch:
+      type: object
+      properties:
+        rule_name:
+          type: string
+          description: Descriptive name for the rule
+          example: "user id based"
+        priority:
+          type: integer
+          description: Priority of the rule (lower number = higher priority)
+          example: 1
+        is_active:
+          type: boolean
+          description: Whether the rule is currently active
+          example: true
 
     Consent:
       type: object

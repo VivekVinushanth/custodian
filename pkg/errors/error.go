@@ -11,7 +11,7 @@ type ErrorMessage struct {
 
 type ClientError struct {
 	ErrorMessage
-	StatusCode int // HTTP status code
+	StatusCode int
 }
 
 type ServerError struct {
@@ -38,5 +38,11 @@ func NewClientError(msg ErrorMessage, code int) *ClientError {
 	return &ClientError{
 		ErrorMessage: msg,
 		StatusCode:   code,
+	}
+}
+
+func NewClientErrorWithoutCode(msg ErrorMessage) *ClientError {
+	return &ClientError{
+		ErrorMessage: msg,
 	}
 }

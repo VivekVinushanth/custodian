@@ -10,41 +10,41 @@ import (
 	"time"
 )
 
-// ResolutionRuleRepository handles DB operations for resolution rules
-type ResolutionRuleRepository struct {
+// UnificationRuleRepository handles DB operations for unification rules
+type UnificationRuleRepository struct {
 	Collection *mongo.Collection
 }
 
-// NewResolutionRuleRepository initializes a repository
-func NewResolutionRuleRepository(db *mongo.Database, collectionName string) *ResolutionRuleRepository {
-	return &ResolutionRuleRepository{
+// NewUnificationRuleRepository initializes a repository
+func NewUnificationRuleRepository(db *mongo.Database, collectionName string) *UnificationRuleRepository {
+	return &UnificationRuleRepository{
 		Collection: db.Collection(collectionName),
 	}
 }
 
-// AddResolutionRule Inserts a new resolution rule
-func (repo *ResolutionRuleRepository) AddResolutionRule(rule models.UnificationRule) error {
+// AddUnificationRule Inserts a new unification rule
+func (repo *UnificationRuleRepository) AddUnificationRule(rule models.UnificationRule) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	_, err := repo.Collection.InsertOne(ctx, rule)
 	if err != nil {
-		return errors.NewServerError(errors.ErrWhileCreatingResolutionRules, err)
+		return errors.NewServerError(errors.ErrWhileCreatingUnificationRules, err)
 	}
 
 	logger.Info("Unification rule created successfully: " + rule.RuleName)
 	return nil
 }
 
-// GetResolutionRules  Retrieves all unification rules
-func (repo *ResolutionRuleRepository) GetResolutionRules() ([]models.UnificationRule, error) {
+// GetUnificationRules  Retrieves all unification rules
+func (repo *UnificationRuleRepository) GetUnificationRules() ([]models.UnificationRule, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	cursor, err := repo.Collection.Find(ctx, bson.M{})
 	if err != nil {
 		logger.Info("Error occurred while fetching resolution rules.")
-		return nil, errors.NewServerError(errors.ErrWhileFetchingResolutionRules, err)
+		return nil, errors.NewServerError(errors.ErrWhileFetchingUnificationRules, err)
 	}
 	defer func(cursor *mongo.Cursor, ctx context.Context) {
 		err := cursor.Close(ctx)
@@ -55,14 +55,14 @@ func (repo *ResolutionRuleRepository) GetResolutionRules() ([]models.Unification
 	var rules []models.UnificationRule
 	if err = cursor.All(ctx, &rules); err != nil {
 		logger.Debug("Error occurred while decoding resolution rules.", err)
-		return nil, errors.NewServerError(errors.ErrWhileFetchingResolutionRules, err)
+		return nil, errors.NewServerError(errors.ErrWhileFetchingUnificationRules, err)
 	}
 	logger.Info("Successfully fetched resolution rules")
 	return rules, nil
 }
 
 // GetUnificationRule retrieves a specific resolution rule by rule_id.
-func (repo *ResolutionRuleRepository) GetUnificationRule(ruleId string) (models.UnificationRule, error) {
+func (repo *UnificationRuleRepository) GetUnificationRule(ruleId string) (models.UnificationRule, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -72,7 +72,29 @@ func (repo *ResolutionRuleRepository) GetUnificationRule(ruleId string) (models.
 	err := repo.Collection.FindOne(ctx, filter).Decode(&rule)
 	if err != nil {
 		logger.Debug("Error occurred while fetching resolution rule with rule_id: "+ruleId, err)
-		return rule, errors.NewServerError(errors.ErrWhileFetchingResolutionRule, err)
+		return rule, errors.NewServerError(errors.ErrWhileFetchingUnificationRule, err)
+	}
+
+	logger.Info("Successfully fetched resolution rule for rule_id: " + ruleId)
+	return rule, nil
+}
+
+// GetUnificationRuleByPropertyName retrieves a specific resolution rule by property name.
+func (repo *UnificationRuleRepository) GetUnificationRuleByPropertyName(ruleId string) (models.UnificationRule, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"rule_id": ruleId}
+	var rule models.UnificationRule
+
+	err := repo.Collection.FindOne(ctx, filter).Decode(&rule)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			logger.Info("No resolution rule found for rule_id: " + ruleId)
+			return models.UnificationRule{}, nil
+		}
+		logger.Debug("Error occurred while fetching resolution rule with rule_id: "+ruleId, err)
+		return models.UnificationRule{}, errors.NewServerError(errors.ErrWhileFetchingUnificationRule, err)
 	}
 
 	logger.Info("Successfully fetched resolution rule for rule_id: " + ruleId)
@@ -80,7 +102,7 @@ func (repo *ResolutionRuleRepository) GetUnificationRule(ruleId string) (models.
 }
 
 // PatchUnificationRule modifies specific fields
-func (repo *ResolutionRuleRepository) PatchUnificationRule(ruleId string, updates bson.M) error {
+func (repo *UnificationRuleRepository) PatchUnificationRule(ruleId string, updates bson.M) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -91,14 +113,14 @@ func (repo *ResolutionRuleRepository) PatchUnificationRule(ruleId string, update
 
 	_, err := repo.Collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		return errors.NewServerError(errors.ErrWhileUpdatingResolutionRule, err)
+		return errors.NewServerError(errors.ErrWhileUpdatingUnificationRule, err)
 	}
 	logger.Info("Successfully updated resolution rule for rule_id: " + ruleId)
 	return nil
 }
 
 // DeleteUnificationRule Removes a resolution rule.
-func (repo *ResolutionRuleRepository) DeleteUnificationRule(ruleId string) error {
+func (repo *UnificationRuleRepository) DeleteUnificationRule(ruleId string) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

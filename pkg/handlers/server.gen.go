@@ -12,6 +12,10 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+const (
+	BearerAuthScopes = "bearerAuth.Scopes"
+)
+
 // Defines values for ConsentCategories.
 const (
 	ConsentCategoriesAll                ConsentCategories = "all"
@@ -38,10 +42,10 @@ const (
 	Overwrite ProfileEnrichmentRuleMergeStrategy = "overwrite"
 )
 
-// Defines values for ProfileEnrichmentRuleRuleType.
+// Defines values for ProfileEnrichmentRulePropertyType.
 const (
-	Computed ProfileEnrichmentRuleRuleType = "computed"
-	Static   ProfileEnrichmentRuleRuleType = "static"
+	Computed ProfileEnrichmentRulePropertyType = "computed"
+	Static   ProfileEnrichmentRulePropertyType = "static"
 )
 
 // ApplicationData defines model for ApplicationData.
@@ -109,28 +113,26 @@ type Profile struct {
 
 // ProfileEnrichmentRule defines model for ProfileEnrichmentRule.
 type ProfileEnrichmentRule struct {
-	Computation        *string                             `json:"computation,omitempty"`
-	CreatedAt          *int                                `json:"created_at,omitempty"`
-	Description        *string                             `json:"description,omitempty"`
-	EnrichmentRuleId   *string                             `json:"enrichment_rule_id,omitempty"`
-	EnrichmentRuleName *string                             `json:"enrichment_rule_name,omitempty"`
-	MaskingRequired    *bool                               `json:"masking_required,omitempty"`
-	MaskingStrategy    *string                             `json:"masking_strategy,omitempty"`
-	MergeStrategy      *ProfileEnrichmentRuleMergeStrategy `json:"merge_strategy,omitempty"`
-	RuleType           *ProfileEnrichmentRuleRuleType      `json:"rule_type,omitempty"`
-	SourceFields       *[]string                           `json:"source_fields,omitempty"`
-	TimeRange          *string                             `json:"time_range,omitempty"`
-	Trigger            *RuleTrigger                        `json:"trigger,omitempty"`
-	UpdatedAt          *int                                `json:"updated_at,omitempty"`
-	Value              *map[string]interface{}             `json:"value,omitempty"`
-	ValueType          *string                             `json:"value_type,omitempty"`
+	Computation   *string                             `json:"computation,omitempty"`
+	CreatedAt     *int                                `json:"created_at,omitempty"`
+	Description   *string                             `json:"description,omitempty"`
+	MergeStrategy *ProfileEnrichmentRuleMergeStrategy `json:"merge_strategy,omitempty"`
+	PropertyName  *string                             `json:"property_name,omitempty"`
+	PropertyType  *ProfileEnrichmentRulePropertyType  `json:"property_type,omitempty"`
+	RuleId        *string                             `json:"rule_id,omitempty"`
+	SourceFields  *[]string                           `json:"source_fields,omitempty"`
+	TimeRange     *string                             `json:"time_range,omitempty"`
+	Trigger       *RuleTrigger                        `json:"trigger,omitempty"`
+	UpdatedAt     *int                                `json:"updated_at,omitempty"`
+	Value         *map[string]interface{}             `json:"value,omitempty"`
+	ValueType     *string                             `json:"value_type,omitempty"`
 }
 
 // ProfileEnrichmentRuleMergeStrategy defines model for ProfileEnrichmentRule.MergeStrategy.
 type ProfileEnrichmentRuleMergeStrategy string
 
-// ProfileEnrichmentRuleRuleType defines model for ProfileEnrichmentRule.RuleType.
-type ProfileEnrichmentRuleRuleType string
+// ProfileEnrichmentRulePropertyType defines model for ProfileEnrichmentRule.PropertyType.
+type ProfileEnrichmentRulePropertyType string
 
 // ProfileHierarchy defines model for ProfileHierarchy.
 type ProfileHierarchy struct {
@@ -184,6 +186,18 @@ type UnificationRule struct {
 	UpdatedAt *int64 `json:"updated_at,omitempty"`
 }
 
+// UnificationRulePatch defines model for UnificationRulePatch.
+type UnificationRulePatch struct {
+	// IsActive Whether the rule is currently active
+	IsActive *bool `json:"is_active,omitempty"`
+
+	// Priority Priority of the rule (lower number = higher priority)
+	Priority *int `json:"priority,omitempty"`
+
+	// RuleName Descriptive name for the rule
+	RuleName *string `json:"rule_name,omitempty"`
+}
+
 // RevokeAllConsentsParams defines parameters for RevokeAllConsents.
 type RevokeAllConsentsParams struct {
 	ConsentType *string `form:"consent_type,omitempty" json:"consent_type,omitempty"`
@@ -204,6 +218,9 @@ type AddEventJSONRequestBody = Event
 
 // AddUnificationRuleJSONRequestBody defines body for AddUnificationRule for application/json ContentType.
 type AddUnificationRuleJSONRequestBody = UnificationRule
+
+// PatchUnificationRuleJSONRequestBody defines body for PatchUnificationRule for application/json ContentType.
+type PatchUnificationRuleJSONRequestBody = UnificationRulePatch
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -238,7 +255,7 @@ type ServerInterface interface {
 	// (POST /events)
 	AddEvent(c *gin.Context)
 	// Get write key
-	// (POST /events/write-key/{application_id})
+	// (GET /events/write-key/{application_id})
 	GetWriteKey(c *gin.Context, applicationId string)
 	// Get a specific event
 	// (GET /events/{event_id})
@@ -252,21 +269,21 @@ type ServerInterface interface {
 	// Retrieve profile by Id
 	// (GET /profiles/{profile_id})
 	GetProfile(c *gin.Context, profileId string)
-	// Get traits of the profile
-	// (GET /profiles/{profile_id}/traits)
-	GetTraits(c *gin.Context, profileId string)
-	// Get all identity resolution rules
+	// Get all unification rules
 	// (GET /unification-rules)
 	GetUnificationRules(c *gin.Context)
-	// Add new identity resolution rule
+	// Add new unification rule
 	// (POST /unification-rules)
 	AddUnificationRule(c *gin.Context)
-	// Delete identity resolution rule
+	// Delete unification rule
 	// (DELETE /unification-rules/{rule_id})
 	DeleteUnificationRule(c *gin.Context, ruleId string)
-	// Get identity resolution rule by ID
+	// Get unification rule rule by ID
 	// (GET /unification-rules/{rule_id})
 	GetUnificationRule(c *gin.Context, ruleId string)
+	// Patch unification rule
+	// (PATCH /unification-rules/{rule_id})
+	PatchUnificationRule(c *gin.Context, ruleId string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -472,6 +489,8 @@ func (siw *ServerInterfaceWrapper) GetEvents(c *gin.Context) {
 // AddEvent operation middleware
 func (siw *ServerInterfaceWrapper) AddEvent(c *gin.Context) {
 
+	c.Set(BearerAuthScopes, []string{})
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -591,30 +610,6 @@ func (siw *ServerInterfaceWrapper) GetProfile(c *gin.Context) {
 	siw.Handler.GetProfile(c, profileId)
 }
 
-// GetTraits operation middleware
-func (siw *ServerInterfaceWrapper) GetTraits(c *gin.Context) {
-
-	var err error
-
-	// ------------- Path parameter "profile_id" -------------
-	var profileId string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "profile_id", c.Param("profile_id"), &profileId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter profile_id: %w", err), http.StatusBadRequest)
-		return
-	}
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.GetTraits(c, profileId)
-}
-
 // GetUnificationRules operation middleware
 func (siw *ServerInterfaceWrapper) GetUnificationRules(c *gin.Context) {
 
@@ -689,6 +684,30 @@ func (siw *ServerInterfaceWrapper) GetUnificationRule(c *gin.Context) {
 	siw.Handler.GetUnificationRule(c, ruleId)
 }
 
+// PatchUnificationRule operation middleware
+func (siw *ServerInterfaceWrapper) PatchUnificationRule(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "rule_id" -------------
+	var ruleId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "rule_id", c.Param("rule_id"), &ruleId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter rule_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PatchUnificationRule(c, ruleId)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -731,9 +750,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/profiles", wrapper.GetAllProfiles)
 	router.DELETE(options.BaseURL+"/profiles/:profile_id", wrapper.DeleteProfile)
 	router.GET(options.BaseURL+"/profiles/:profile_id", wrapper.GetProfile)
-	router.GET(options.BaseURL+"/profiles/:profile_id/traits", wrapper.GetTraits)
 	router.GET(options.BaseURL+"/unification-rules", wrapper.GetUnificationRules)
 	router.POST(options.BaseURL+"/unification-rules", wrapper.AddUnificationRule)
 	router.DELETE(options.BaseURL+"/unification-rules/:rule_id", wrapper.DeleteUnificationRule)
 	router.GET(options.BaseURL+"/unification-rules/:rule_id", wrapper.GetUnificationRule)
+	router.PATCH(options.BaseURL+"/unification-rules/:rule_id", wrapper.PatchUnificationRule)
 }

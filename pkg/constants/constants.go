@@ -1,14 +1,23 @@
 package constants
 
-// Define collection names
+import "time"
+
+// Collection names
 const (
-	ResolutionRulesCollection = "resolution_rules"
-	EventSchemaCollection     = "event_schemas"
-	EventCollection           = "events"
-	ProfileCollection         = "profiles"
-	ProfileSchemaCollection   = "profile_schema"
+	UnificationRulesCollection = "resolution_rules"
+	EventCollection            = "events"
+	ProfileCollection          = "profiles"
+	ProfileSchemaCollection    = "profile_schema"
 )
 const MaxRetryAttempts = 10
+const RetryDelay = 100 * time.Millisecond
+const ApiBasePath = "/api/v1"
+const Filter = "filter"
+
+const (
+	TokenEndpoint      = "/oauth2/token"
+	RevocationEndpoint = "/oauth2/revoke"
+)
 
 var AllowedPropertyTypes = map[string]bool{
 	"string":        true,
@@ -17,16 +26,12 @@ var AllowedPropertyTypes = map[string]bool{
 	"date":          true,
 	"arrayOfString": true,
 	"arrayOfInt":    true,
-	//"object":   true,
-	// "arrayOfPredefinedObjects": true, // for example: array of event_type
-	// todo: add more types as needed and ensure how to preserve them
 }
 
 var GoTypeMapping = map[string]string{
 	"string":        "string",
 	"int":           "int",
 	"boolean":       "bool",
-	"date":          "time.Time",
 	"arrayofstring": "[]string",
 	"arrayofint":    "[]int",
 }

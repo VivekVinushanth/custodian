@@ -25,9 +25,9 @@ type Profile struct {
 
 type ProfileEnrichmentRule struct {
 	RuleId          string      `json:"rule_id,omitempty" bson:"rule_id,omitempty"`
-	TraitName       string      `json:"trait_name" bson:"trait_name"`
+	PropertyName    string      `json:"property_name" bson:"property_name"`
 	Description     string      `json:"description,omitempty" bson:"description,omitempty"`
-	RuleType        string      `json:"rule_type" bson:"rule_type"`                             // static or computed
+	PropertyType    string      `json:"property_type" bson:"property_type"`                     // static or computed
 	Value           interface{} `json:"value,omitempty" bson:"value,omitempty"`                 // required if trait_type == static
 	ValueType       string      `json:"value_type,omitempty" bson:"value_type,omitempty"`       // required if trait_type == static
 	Computation     string      `json:"computation,omitempty" bson:"computation,omitempty"`     // if trait_type == computed

@@ -4,33 +4,29 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/wso2/identity-customer-data-service/pkg/cache"
+	"github.com/wso2/identity-customer-data-service/pkg/constants"
+	"github.com/wso2/identity-customer-data-service/pkg/errors"
+	"github.com/wso2/identity-customer-data-service/pkg/logger"
+	"github.com/wso2/identity-customer-data-service/pkg/utils"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 var (
-	tokenCache   = make(map[string]cachedToken)
-	cacheMutex   sync.RWMutex
-	cacheTimeout = 15 * time.Minute
+	tokenCache = cache.NewCache(15 * time.Minute)
 )
-
-type cachedToken struct {
-	ValidUntil time.Time
-	Claims     map[string]interface{}
-}
 
 // ValidateAuthentication validates Authorization: Bearer token from context
 func ValidateAuthentication(c *gin.Context) (map[string]interface{}, error) {
-	log.Print("are we here to validate token?")
+
 	token, err := extractBearerToken(c)
 	if err != nil {
 		return nil, err
@@ -45,25 +41,36 @@ func ValidateAuthentication(c *gin.Context) (map[string]interface{}, error) {
 }
 
 func extractBearerToken(c *gin.Context) (string, error) {
+
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		return "", errors.New("authorization header missing")
+		clientError := errors.NewClientError(errors.ErrorMessage{
+			Code:        errors.ErrUnAuthorizedRequest.Code,
+			Message:     errors.ErrUnAuthorizedRequest.Message,
+			Description: errors.ErrUnAuthorizedRequest.Description,
+		}, http.StatusUnauthorized)
+		return "", clientError
 	}
 	parts := strings.SplitN(authHeader, " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return "", errors.New("authorization header format must be Bearer {token}")
+		clientError := errors.NewClientError(errors.ErrorMessage{
+			Code:        errors.ErrUnAuthorizedRequest.Code,
+			Message:     errors.ErrUnAuthorizedRequest.Message,
+			Description: errors.ErrUnAuthorizedRequest.Description,
+		}, http.StatusUnauthorized)
+		return "", clientError
 	}
 	return parts[1], nil
 }
 
 func validateToken(token string) (map[string]interface{}, error) {
-	cacheMutex.RLock()
-	//cached, found := tokenCache[token]
-	cacheMutex.RUnlock()
 
-	//if found && time.Now().Before(cached.ValidUntil) {
-	//	return cached.Claims, nil
-	//}
+	cachedClaims, found := tokenCache.Get(token)
+	if found {
+		if claims, ok := cachedClaims.(map[string]interface{}); ok {
+			return claims, nil
+		}
+	}
 
 	claims, err := introspectToken(token)
 	if err != nil {
@@ -72,12 +79,22 @@ func validateToken(token string) (map[string]interface{}, error) {
 
 	active, ok := claims["active"].(bool)
 	if !ok || !active {
-		return nil, errors.New("token is not active")
+		clientError := errors.NewClientError(errors.ErrorMessage{
+			Code:        errors.ErrUnAuthorizedExpiryRequest.Code,
+			Message:     errors.ErrUnAuthorizedExpiryRequest.Message,
+			Description: errors.ErrUnAuthorizedExpiryRequest.Description,
+		}, http.StatusUnauthorized)
+		return nil, clientError
 	}
 
 	audiences, ok := claims["aud"].([]interface{})
 	if !ok {
-		return nil, errors.New("invalid audience claim")
+		clientError := errors.NewClientError(errors.ErrorMessage{
+			Code:        errors.ErrInvalidAudience.Code,
+			Message:     errors.ErrInvalidAudience.Message,
+			Description: errors.ErrInvalidAudience.Description,
+		}, http.StatusUnauthorized)
+		return nil, clientError
 	}
 
 	hasCDS := false
@@ -88,28 +105,20 @@ func validateToken(token string) (map[string]interface{}, error) {
 		}
 	}
 	if !hasCDS {
-		return nil, errors.New("audience iam-cds missing")
+		clientError := errors.NewClientError(errors.ErrorMessage{
+			Code:        errors.ErrInvalidAudience.Code,
+			Message:     errors.ErrInvalidAudience.Message,
+			Description: errors.ErrInvalidAudience.Description,
+		}, http.StatusUnauthorized)
+		return nil, clientError
 	}
 
-	exp := time.Now().Add(cacheTimeout)
-	if expTime, ok := claims["exp"].(float64); ok {
-		expFromToken := time.Unix(int64(expTime), 0)
-		if expFromToken.Before(exp) {
-			exp = expFromToken
-		}
-	}
-
-	cacheMutex.Lock()
-	tokenCache[token] = cachedToken{
-		ValidUntil: exp,
-		Claims:     claims,
-	}
-	cacheMutex.Unlock()
-
+	tokenCache.Set(token, claims) // ✅ Store fresh introspection claims
 	return claims, nil
 }
 
 func introspectToken(token string) (map[string]interface{}, error) {
+
 	introspectionURL := "https://localhost:9443/oauth2/introspect"
 	client := &http.Client{
 		Timeout: 5 * time.Second,
@@ -123,7 +132,7 @@ func introspectToken(token string) (map[string]interface{}, error) {
 
 	req, err := http.NewRequest("POST", introspectionURL, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, errors.NewServerError(errors.ErrWhileIntrospectingNewToken, err)
 	}
 
 	auth := base64.StdEncoding.EncodeToString([]byte("admin:admin"))
@@ -132,24 +141,25 @@ func introspectToken(token string) (map[string]interface{}, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.NewServerError(errors.ErrWhileIntrospectingNewToken, err)
+
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("introspection failed: %s", string(body))
+		return nil, errors.NewServerError(errors.ErrWhileIntrospectingNewToken, err)
 	}
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
+		return nil, errors.NewServerError(errors.ErrWhileIntrospectingNewToken, err)
 	}
 
 	return result, nil
 }
 
-func GetTokenFromIS(applicationID string) (string, error) {
+func GetTokenFromIS(applicationId string) (string, error) {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Only for local/dev
 	}
@@ -158,16 +168,19 @@ func GetTokenFromIS(applicationID string) (string, error) {
 		Transport: tr,
 	}
 
-	endpoint := "https://localhost:9443/oauth2/token"
+	endpoint, err := utils.BuildURL(constants.TokenEndpoint)
+
+	if err != nil {
+		return "", errors.NewServerError(errors.ErrWhileBuildingPath, err)
+	}
 
 	data := url.Values{}
 	data.Set("grant_type", "client_credentials")
-	//data.Set("scope", "test")
-	data.Set("tokenBindingId", applicationID) // Add application ID as token binding ID
+	data.Set("tokenBindingId", applicationId)
 
 	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
-		return "", fmt.Errorf("failed to create token request: %w", err)
+		return "", errors.NewServerError(errors.ErrWhileIssuingNewToken, err)
 	}
 
 	// Basic Auth Header (e.g., client_id:client_secret)
@@ -180,31 +193,36 @@ func GetTokenFromIS(applicationID string) (string, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("error sending token request: %w", err)
+		log.Print("making request to token endpoint")
+		return "", errors.NewServerError(errors.ErrWhileIssuingNewToken, err)
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("token request failed: status %d - %s", resp.StatusCode, string(body))
+		log.Print("response status code not ok")
+		return "", errors.NewServerError(errors.ErrWhileIssuingNewToken, err)
 	}
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("failed to decode token response: %w", err)
+		log.Print("response body unmarshalled")
+		return "", errors.NewServerError(errors.ErrWhileIssuingNewToken, err)
 	}
 
+	logger.Info("response body unmarshalled")
 	accessToken, ok := result["access_token"].(string)
 	if !ok {
-		return "", fmt.Errorf("access_token not found in response")
+		return "", errors.NewServerError(errors.ErrWhileIssuingNewToken, err)
 	}
-
-	log.Printf("New access token generated: %s", accessToken)
+	logger.Info(fmt.Sprintf("New access token generated for application : '%s'", applicationId))
 	return accessToken, nil
 }
 
+// Revoke token issued as write key
 func RevokeToken(token string) error {
+
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -213,14 +231,18 @@ func RevokeToken(token string) error {
 		Transport: tr,
 	}
 
-	endpoint := "https://localhost:9443/oauth2/revoke"
+	endpoint, err := utils.BuildURL(constants.RevocationEndpoint)
+
+	if err != nil {
+		return errors.NewServerError(errors.ErrWhileBuildingPath, err)
+	}
 
 	data := url.Values{}
 	data.Set("token", token)
 
 	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
-		return fmt.Errorf("failed to create revoke request: %w", err)
+		return errors.NewServerError(errors.ErrWhileRevokingToken, err)
 	}
 
 	// Basic Auth Header (same as token endpoint)
@@ -232,16 +254,16 @@ func RevokeToken(token string) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("error sending revoke request: %w", err)
+		return errors.NewServerError(errors.ErrWhileRevokingToken, err)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	_, _ = io.ReadAll(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("revoke request failed: status %d - %s", resp.StatusCode, string(body))
+		return errors.NewServerError(errors.ErrWhileRevokingToken, err)
 	}
 
-	log.Printf("Token revoked successfully: %s", token)
+	logger.Info("Token got revoked successfully")
 	return nil
 }
