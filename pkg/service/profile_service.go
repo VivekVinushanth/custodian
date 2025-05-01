@@ -140,9 +140,10 @@ func DeleteProfile(ProfileId string) error {
 		if err != nil {
 			return errors.NewServerError(errors.ErrWhileDeletingProfile, err)
 		}
+		return nil
 	}
 
-	if profile.ProfileHierarchy.IsParent && len(profile.ProfileHierarchy.ChildProfiles) >= 0 {
+	if profile.ProfileHierarchy.IsParent && len(profile.ProfileHierarchy.ChildProfiles) > 0 {
 		//get all child profiles and delete
 		for _, childProfile := range profile.ProfileHierarchy.ChildProfiles {
 			profile, err := profileRepo.FindProfileByID(childProfile.ChildProfileId)
@@ -164,6 +165,7 @@ func DeleteProfile(ProfileId string) error {
 		if err != nil {
 			return errors.NewServerError(errors.ErrWhileDeletingProfile, err)
 		}
+		return nil
 	}
 
 	// If it is a child profile, delete it
@@ -220,8 +222,8 @@ func GetAllProfiles() ([]models.Profile, error) {
 			if err != nil || master == nil {
 				continue
 			}
-			master.ProfileId = profile.ProfileId
 			master.ProfileHierarchy = buildProfileHierarchy(&profile, master)
+			master.ProfileId = profile.ProfileId
 			result = append(result, *master)
 		}
 	}
@@ -286,8 +288,8 @@ func GetAllProfilesWithFilter(filters []string) ([]models.Profile, error) {
 			if err != nil || master == nil {
 				continue
 			}
-			master.ProfileId = profile.ProfileId
 			master.ProfileHierarchy = buildProfileHierarchy(&profile, master)
+			master.ProfileId = profile.ProfileId
 			result = append(result, *master)
 		}
 	}
